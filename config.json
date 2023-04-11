@@ -3,6 +3,9 @@
     "namespace": "ImageMap\\ExternalModule",
     "description": "This module replaces an input, radio, or checkbox field with an interactive image where users can click on image regions to select one or more field options. Find the complete <b><a href='https://github.com/ctsit/imagemap' target='_blank'>documentation</a></b> and an example instrument at <a href='https://github.com/ctsit/imagemap/blob/master/docs/Instrument%20Example.zip' target='_blank'>https://github.com/ctsit/imagemap</a>.",
     "framework-version": 9,
+    "permissions": [
+        "redcap_every_page_top"
+    ],
     "authors": [
         {
             "name": "Andy Martin",
