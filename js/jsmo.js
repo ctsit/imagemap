@@ -278,7 +278,7 @@
         },
 
         // Update the image map to match the field
-        loadAreaList: function(setting) {
+        loadAreaList: function(setting, noneAboveOption = false) {
             const field_name = setting.field;
             const tr = setting.tr;
             const img = $('img[field="'+field_name+'"]', tr).not(".mapster_el");
@@ -291,6 +291,14 @@
                     //module.log('Code: ' + code);
                     $(img).mapster('set',true,code);
                 });
+                // Deselect checkboxes when activating a @NONEOFTHEABOVE tagged option
+                if (noneAboveOption) {
+                    let deselectBoxes = [];
+                    $('input[type=checkbox]:not(:checked)', tr).each(function() {
+                        deselectBoxes.push($(this).attr('code'));
+                    });
+                    $(img).mapster('set',false,deselectBoxes);
+                }
             } else if (setting.type === 'radio') {
                 // For radio button questions, the main input is here - use it to set value
                 // module.log("RADIO");
@@ -408,4 +416,32 @@
         }
 
     });
+
+    $( document ).ready(function() {
+        // trigger automated deselection of map regions when a @NONEOFTHEABOVE option is chosen
+        // see RC core function in Resources/js/DataEntrySurveyCommon.js
+        var _nota = window.noneOfTheAboveAlert;
+        window.noneOfTheAboveAlert = function(field, choicesCsv, regchoicesCsv, langOkay, langCancel) {
+            _nota.apply(this, arguments);
+
+            $(`#noneOfTheAboveDialog`)
+                .on(
+                    "dialogfocus",
+                    () => {
+                        // NOTE: noneOfTheAboveAlert creates independent dialogs for each @NONEOFTHEABOVE tagged field
+                        // loadAreaList will run for _every_ @NONEOFTHEABOVE tagged field.
+                        // attempt to select only current dialog box
+                        const clearOthersButton = $(`#noneOfTheAboveDialog.ui-dialog-content`)
+                              .siblings('div.ui-dialog-buttonpane')
+                              .find(`button:contains('${window.lang.data_entry_417}')`)
+                        clearOthersButton
+                            .on("click", () => {
+                                let fieldData = module.data.fields[field]
+                                module.loadAreaList(fieldData, noneAboveOption = true);
+                            });
+                    });
+            // NOTE: a user clicking "cancel" will break this adjustment due to the use of dialog('destroy')
+        }
+    });
+
 }
