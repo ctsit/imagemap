@@ -2,6 +2,22 @@
 All notable changes to the Imagemap module will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+
+## [1.12.0] - 2024-02-20
+### Added
+- Add NONEOFTHEABOVE tags to example project (@ChemiKyle)
+- Add deselection of imagemap regions when using NONEOFTHEABOVE action tag (@ChemiKyle)
+
+
+## [1.11.0] - 2023-09-01
+### Added
+- Add Ladder imagemap requested by Yunfeng Dai (Kyle Chesney)
+
+### Changed
+- Bump framework version to 14 to accommodate lack of permissions section update UF contact info (Kyle Chesney)
+- Refactored name of Choir Body Map from `PAINMAP` to `CHOIRBODYMAP`.  Both names continue to work but new images and documentation support `CHOIRBODYMAP` as tha image tag.
+
+
 ## [1.10.1] - 2023-01-09
 ### Changed
 - bug fix for surveys (Andrew Martin)
