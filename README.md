@@ -1597,6 +1597,18 @@ This is a body rendering developed at Stanford for a specific project -- no attr
 Image provided by Yunfeng Dai.
 ![LADDER](./img/ladder_image.png)
 
+**`GRIDS_BODY_MAP_FRONT`**
+
+This is a map showing the anterior view of a human body, where the area inside the outline is split into 10 pixel by 10 pixel selectable grids. This allows for high fidelity selection of granular areas within the body. Use of "text box fields" within REDCap are encouraged for this map, due to the sheer number of "options".
+
+![GRIDS_BODY_MAP_FRONT](./img/antpainimage1000px.png)
+
+**`GRIDS_BODY_MAP_BACK`**
+
+This is a map showing the posterior view of a human body, where the area inside the outline is split into 10 pixel by 10 pixel selectable grids. This allows for high fidelity selection of granular areas within the body. Use of "text box fields" within REDCap are encouraged for this map, due to the sheer number of "options".
+
+![GRIDS_BODY_MAP_BACK](./img/postpainimage1000px.png)
+
 ## Usage
 To display one of the images above in a survey or data entry form, add a new field of type **Text Box** and include one of the following options in the **Action Tags / Field Annotation (optional)** field:
 
@@ -1623,6 +1635,8 @@ To display one of the images above in a survey or data entry form, add a new fie
 @IMAGEMAP=SZMN_SIDE
 @IMAGEMAP=DERM_PHOTO_BODY
 @IMAGEMAP=LADDER
+@IMAGEMAP=GRIDS_BODY_MAP_FRONT
+@IMAGEMAP=GRIDS_BODY_MAP_BACK
 ```
 
 Each region of an image is associated with a key, for example, the "Ankle (front-left)" of the female body diagram is linked to the key "f34". To find a particular key for a body part, please refer to the HTML files (map files) located in the folder `maps`. After selecting multiple body parts, the field containing the action tag `@IMAGEMAP` will have as a value a string of comma-separated keys, e.g. "f36,f17,f18,f21". Similarly, if using the faces diagram, the field containing the action tag (e.g. `@IMAGEMAP=SMILE_SCALE`) will have the value corresponding to the face clicked.
@@ -1630,7 +1644,7 @@ Each region of an image is associated with a key, for example, the "Ankle (front
 
 ## Testing instrument
 
-This project includes an [Example Instrument](docs/Instrument\ Example.zip) that includes each of these image maps. It demonstrates different methods of using these image maps; which is suitable for testing or demonstration purposes.
+This project includes an [Example Instrument](docs/all_maps_Instrument_Example.zip) that includes each of these image maps. It demonstrates different methods of using these image maps; which is suitable for testing or demonstration purposes. Some image maps are also available in their own `*_Instrument_Example.zip` in the [docs](docs/) folder.
 
 
 ## Acknowledgements & Copyright
@@ -1652,4 +1666,5 @@ This project includes an [Example Instrument](docs/Instrument\ Example.zip) that
  * The 66 Swollen / 68 Tender Joint Map was contributed by Dr Tom Lynch from the Institute of Bone and Joint Research, University of Sydney. The image was adopted with permission from Dr Alexis Ogdie-Beatty and first published in this article from the OMERACT group: [website](http://www.jrheum.org/content/early/2019/05/24/jrheum.181089).
  * The FR_REGION was contributed by Hugo Potier of University Hospital of Nîmes. The image source come from [data.gouv.fr](http://data.gouv.fr).
  * Fibromyalgia self-report image appears in the article ["Fibromyalgia: A Clinical Review"](https://jamanetwork.com/journals/jama/fullarticle/1860480) by Daniel J. Clauw and is provided by Thomas Van Doorn and Dr. Andrea Nicol. Copyright 2014 American Medical Association. All rights reserved.
+ * The Grids Body Map (both front and back) were developed and contributed by Sumon Chattopadhyay and the BMIC team at the University of Utah.
 

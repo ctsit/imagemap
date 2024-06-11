@@ -1,7 +1,7 @@
-# Change Log
-All notable changes to the Imagemap module will be documented in this file.
-This project adheres to [Semantic Versioning](http://semver.org/).
-
+# imagemap 1.13.0 (released 2024-06-11)
+- Add Grids Body Map (@schatto1, @saipavan10-git, @pbchase, #76, #77)
+- Rename instrument example files (@pbchase, #77)
+- Remove Andy Martin from config.json (@ChemiKyle)
 
 ## [1.12.0] - 2024-02-20
 ### Added
