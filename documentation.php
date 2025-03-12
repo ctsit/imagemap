@@ -66,7 +66,7 @@ require_once APP_PATH_DOCROOT . 'ProjectGeneral/header.php';
 <p>
     The following instrument zip file contains a set of examples with different imagemap options. Simply download it and add it to your project from the online designer. You can remove the instrument at any time when you're done.
 </p>
-    <a href="<?php echo $module->getUrl("docs/Instrument Example.zip") ?>" target="_BLANK">
+    <a href="<?php echo $module->getUrl("docs/all_maps_Instrument_Example.zip") ?>" target="_BLANK">
         <div class="button btn btn-primary">Download Example Instrument</div>
     </a>
 
