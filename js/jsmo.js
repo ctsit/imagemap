@@ -1,5 +1,5 @@
 // This file extends the default JSMO object with methods for this EM
-;{
+; {
     // Define the jsmo in IIFE so we can reference object in our new function methods
     const module = ExternalModules.ImageMap.ExternalModule;
 
@@ -7,13 +7,13 @@
     Object.assign(module, {
 
         // Startup function for data entry pages with imagemaps
-        start: function() {
+        start: function () {
             // Render each imagemap and create a pointer to it by field_name
-            if (! module.data) module.data = {};
+            if (!module.data) module.data = {};
             module.data.fields = {};
 
             // Loop through settings and deliver payload for instrument
-            $.each(module.data.settings, function(index, setting) {
+            $.each(module.data.settings, function (index, setting) {
                 module.data.fields[setting['field']] = setting; //setting;
                 module.render(setting);
             });
@@ -25,18 +25,18 @@
             }
 
             // Turn the form back on as the EM turns it off on page load
-            $('#form').animate({opacity: 1}, 250);
+            $('#form').animate({ opacity: 1 }, 250);
         },
 
         // Startup function for online designer helper
-        onlineDesignerStart: function() {
+        onlineDesignerStart: function () {
             module.log("Online Designer ImageMap Start");
             // Checking if field annotation is present on this page.
             if ($('#div_field_annotation').length === 0) {
                 return false;
             }
 
-            $('body').on('dialogopen', function(event, ui) {
+            $('body').on('dialogopen', function (event, ui) {
                 const $popup = $(event.target);
                 if ($popup.prop('id') !== 'action_tag_explain_popup') {
                     // That's not the popup we are looking for...
@@ -45,7 +45,7 @@
                 }
 
                 // Aux function that checks if text matches the "@HIDECHOICE" string.
-                const isDefaultLabelColumn = function() {
+                const isDefaultLabelColumn = function () {
                     return $(this).text() === '@HIDECHOICE';
                 }
 
@@ -93,9 +93,9 @@
         },
 
         // Render the initial javascript imagemaps for the instrument
-        render: function(setting) {
+        render: function (setting) {
             // Get TR Element
-            const tr = setting.tr = $('tr[sq_id='+setting.field+']');
+            const tr = setting.tr = $('tr[sq_id=' + setting.field + ']');
             //module.log('tr');module.log($(tr));
 
             // Get Label
@@ -119,15 +119,15 @@
                 if (hideInput) {
                     // Hide radio and checkboxes
                     if (type === 'radio' || type === 'checkbox') {
-                        $('.frmrdh',tr).hide();
-                        $('.frmrd',tr).hide();
-                        $('.choicevert',tr).hide();
-                        $('.choicehoriz',tr).hide();
+                        $('.frmrdh', tr).hide();
+                        $('.frmrd', tr).hide();
+                        $('.choicevert', tr).hide();
+                        $('.choicehoriz', tr).hide();
                     }
 
                     // Hide input
                     if (type === 'text') {
-                        $('input[type=text][name="'+setting.field+'"]').hide();
+                        $('input[type=text][name="' + setting.field + '"]').hide();
                     }
                 }
             }
@@ -151,14 +151,14 @@
             }).html(setting.areas);
 
             // Set the mouse-over title - in this case, the data-set attribute in the image map
-            $('area:not([data-key=""])[title=""]',mapTag).each(
-                function() {
+            $('area:not([data-key=""])[title=""]', mapTag).each(
+                function () {
                     $(this).attr('title', $(this).attr('data-key'));
                 }
             );
 
             //module.log('mapTag');module.log($(mapTag));
-            const imageMap = $('<div style="margin-right:auto;margin-left:auto;width:'+setting.width+'px"/>')
+            const imageMap = $('<div style="margin-right:auto;margin-left:auto;width:' + setting.width + 'px"/>')
                 .addClass('imagemap')
                 .append(imgTag)
                 .append(mapTag);
@@ -184,9 +184,9 @@
             const fillColor = 'fillColor' in setting ? setting.fillColor : 'ff0000';
 
             // Apply Mapster to image tag
-            const img = $('#'+id, label).mapster({
+            const img = $('#' + id, label).mapster({
                 fillColor: fillColor,
-                mapKey:'data-key',
+                mapKey: 'data-key',
                 fillOpacity: 0.4,
                 isSelectable: selectable,
                 singleSelect: singleSelect,
@@ -196,7 +196,7 @@
                 },
                 onStateChange: function (data) {
                     // Update input when changed
-                    const image=this;
+                    const image = this;
                     module.log("State Change", data, image);
                     module.updateAreaList(image, data);
                 }
@@ -236,7 +236,7 @@
                 // });
 
                 // Handle change in checkboxes with later redcap versions
-                $('input[type=checkbox]', tr).bind('click', function(event) {
+                $('input[type=checkbox]', tr).bind('click', function (event) {
                     // Not sure, but updated from event.isTrusted to event.originalEvent.isTrusted
                     if ((event.originalEvent && event.originalEvent.isTrusted) || event.isTrusted) {
                         // module.log("Clicked Box!", this);
@@ -250,7 +250,7 @@
                 });
             } else if (setting.type === 'radio') {
                 // If bound to radio, capture radio changes and update imageMap
-                $('input[type=radio]', tr).bind('click', function() {
+                $('input[type=radio]', tr).bind('click', function () {
                     const tr = $(this).closest('tr');
                     //module.log(tr + ' clicked');
                     const field_name = $(tr).attr('sq_id');
@@ -259,16 +259,16 @@
                 });
 
                 // Bind to reset button
-                $('a:contains("reset")', tr).bind('click',function() {
+                $('a:contains("reset")', tr).bind('click', function () {
                     const tr = $(this).closest('tr');
                     //module.log(tr);
                     const field_name = $(tr).attr('sq_id');
                     //module.log(field_name);
-                    const img = $('img[field="'+field_name+'"]', tr).not(".mapster_el");
+                    const img = $('img[field="' + field_name + '"]', tr).not(".mapster_el");
 
                     // Get selected option/s and deselect them
                     const sel = $(img).mapster('get');
-                    $(img).mapster('set',false,sel);
+                    $(img).mapster('set', false, sel);
                     //module.log(sel);
                 });
             } else if (setting.type === 'text') {
@@ -278,31 +278,31 @@
         },
 
         // Update the image map to match the field
-        loadAreaList: function(setting, noneAboveOption = false) {
+        loadAreaList: function (setting, noneAboveOption = false) {
             const field_name = setting.field;
             const tr = setting.tr;
-            const img = $('img[field="'+field_name+'"]', tr).not(".mapster_el");
+            const img = $('img[field="' + field_name + '"]', tr).not(".mapster_el");
 
             // If checkboxes are used, then update imagemap from values
             if (setting.type === 'checkbox') {
-                $('input[type=checkbox]:checked', tr).each(function() {
+                $('input[type=checkbox]:checked', tr).each(function () {
                     // (this) is redcap checkbox field.
                     const code = $(this).attr('code');
                     //module.log('Code: ' + code);
-                    $(img).mapster('set',true,code);
+                    $(img).mapster('set', true, code);
                 });
                 // Deselect checkboxes when activating a @NONEOFTHEABOVE tagged option
                 if (noneAboveOption) {
                     let deselectBoxes = [];
-                    $('input[type=checkbox]:not(:checked)', tr).each(function() {
+                    $('input[type=checkbox]:not(:checked)', tr).each(function () {
                         deselectBoxes.push($(this).attr('code'));
                     });
-                    $(img).mapster('set',false,deselectBoxes);
+                    $(img).mapster('set', false, deselectBoxes);
                 }
             } else if (setting.type === 'radio') {
                 // For radio button questions, the main input is here - use it to set value
                 // module.log("RADIO");
-                $('input[name="'+field_name+'"]', tr).each(function() {
+                $('input[name="' + field_name + '"]', tr).each(function () {
                     let val = $(this).val();
 
                     // This was causing an error for text storage in newer redcap versions -- so I'm wrapping it.
@@ -312,21 +312,21 @@
                     } catch (errror) {
                         module.log("caught get val exception for " + field_name);
                     }
-                    if ( mapVal !== val ) { // avoid infinite loop
-                        $(img).mapster('set',true,val);
+                    if (mapVal !== val) { // avoid infinite loop
+                        $(img).mapster('set', true, val);
                     }
                 });
             } else if (setting.type === 'text') {
                 // If text - then process from list
                 // module.log("TEXT");
-                $('input[type=text][name="'+field_name+'"]', tr).each(function() {
-                    $(img).mapster('set',true,$(this).val());
+                $('input[type=text][name="' + field_name + '"]', tr).each(function () {
+                    $(img).mapster('set', true, $(this).val());
                 });
             }
         },
 
         // Takes the values from the image map and saves them to the redcap form
-        updateAreaList: function(image, data) {
+        updateAreaList: function (image, data) {
 
             // Only update on a 'select'
             if (data.state === 'select') {
@@ -387,24 +387,24 @@
         },
 
         // Resize window to fit mobile or orientation changes
-        resize: function() {
+        resize: function () {
             // find all resize-check images and set width based on viewport width
-            const window_width = $( window ).width();	// Get viewport width
-            $('img[resize_check="true"]').each( function() {
+            const window_width = $(window).width();	// Get viewport width
+            $('img[resize_check="true"]').each(function () {
                 const image_width = this.getAttribute('width'); // Get original image width
-                const max_width = Math.min(image_width,window_width); // Determine max
-                $(this).mapster('resize',max_width,null);
+                const max_width = Math.min(image_width, window_width); // Determine max
+                $(this).mapster('resize', max_width, null);
             });
         },
 
         // Add module.log() commands as needed to help debug issues and turn on project-level js logging
-        log: function() {
-            if (! module.data.enableConsoleLogs) return;
+        log: function () {
+            if (!module.data.enableConsoleLogs) return;
 
             // Make console logging more resilient to Redmond
             try {
-                console.log.apply(this,arguments);
-            } catch(err) {
+                console.log.apply(this, arguments);
+            } catch (err) {
                 // Error trying to apply logs to console (problem with IE11)
                 try {
                     console.log(arguments);
@@ -417,11 +417,11 @@
 
     });
 
-    $( document ).ready(function() {
+    $(document).ready(function () {
         // trigger automated deselection of map regions when a @NONEOFTHEABOVE option is chosen
         // see RC core function in Resources/js/DataEntrySurveyCommon.js
         var _nota = window.noneOfTheAboveAlert;
-        window.noneOfTheAboveAlert = function(field, choicesCsv, regchoicesCsv, langOkay, langCancel) {
+        window.noneOfTheAboveAlert = function (field, choicesCsv, regchoicesCsv, langOkay, langCancel) {
             _nota.apply(this, arguments);
 
             $(`#noneOfTheAboveDialog`)
@@ -432,8 +432,8 @@
                         // loadAreaList will run for _every_ @NONEOFTHEABOVE tagged field.
                         // attempt to select only current dialog box
                         const clearOthersButton = $(`#noneOfTheAboveDialog.ui-dialog-content`)
-                              .siblings('div.ui-dialog-buttonpane')
-                              .find(`button:contains('${window.lang.data_entry_417}')`)
+                            .siblings('div.ui-dialog-buttonpane')
+                            .find(`button:contains('${window.lang.data_entry_417}')`)
                         clearOthersButton
                             .on("click", () => {
                                 let fieldData = module.data.fields[field]
