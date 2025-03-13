@@ -1,7 +1,7 @@
 {
     "name": "Image Map",
     "namespace": "ImageMap\\ExternalModule",
-    "description": "This module replaces an input, radio, or checkbox field with an interactive image where users can click on image regions to select one or more field options. Find the complete <b><a href='https://github.com/ctsit/imagemap' target='_blank'>documentation</a></b> and an example instrument at <a href='https://github.com/ctsit/imagemap/blob/master/docs/all_maps_Instrument_Example.zip'",
+    "description": "This module replaces an input, radio, or checkbox field with an interactive image where users can click on image regions to select one or more field options. Find the complete <b><a href='https://github.com/ctsit/imagemap' target='_blank'>documentation</a></b> and <b><a href='https://github.com/ctsit/imagemap/blob/master/docs/' target='_blank'>example instruments</a></b> on GitHub ",
     "framework-version": 14,
     "authors": [
         {
