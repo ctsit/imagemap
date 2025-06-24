@@ -1,3 +1,6 @@
+# imagemap 1.13.1 (released 2025-06-24)
+- Update broken documentation links (@saipavan10-git, #81, #82, #83)
+
 # imagemap 1.13.0 (released 2024-06-11)
 - Add Grids Body Map (@schatto1, @saipavan10-git, @pbchase, #76, #77)
 - Rename instrument example files (@pbchase, #77)
