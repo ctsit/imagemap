@@ -396,6 +396,13 @@
                 $(this).mapster('resize', max_width, null);
             });
         },
+        
+        // Register with the afterRender hook for language changes
+        afterRender: function(callback) {
+            if (typeof callback === 'function') {
+                callback.call(module);
+            }
+        },
 
         // Add module.log() commands as needed to help debug issues and turn on project-level js logging
         log: function () {
