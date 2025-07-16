@@ -1,3 +1,8 @@
+# imagemap 1.13.2 (released 2025-07-16)
+- Remove eval from imageMapster.js (@saipavan10-git, #70, #85)
+- Prevent duplicate images when switch lamnguage with MLM (@saipavan10-git, #80, #85)
+- Upgrade framework version to 16 (@saipavan10-git, #84, #85)
+
 # imagemap 1.13.1 (released 2025-06-24)
 - Update broken documentation links (@saipavan10-git, #81, #82, #83)
 
