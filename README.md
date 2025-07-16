@@ -5,9 +5,8 @@
 
 This REDCap module replaces an input, radio, or checkbox field with an image that users can interact with to select one or more options. Specific applications include a body map (with over 70 body regions), a smile scale from 1-7 with facial expressions, three representations of teeth and teeth surfaces, among others. See below for a complete list of current imagemaps. The module is tied to questions via the `@IMAGEMAP` action tag and the name of one of the pre-defined image maps.  e.g. `@IMAGEMAP=CHOIRBODYMAP_FEMALE`.
 
-
 ## Prerequisites
-- REDCap >= 12.0.4 (see previous released for support of earlier REDCap versions)
+- A modern version of [REDCap](https://project-redcap.org/).
 
 ## Easy Installation
 - Obtain this module from the Consortium [REDCap Repo](https://redcap.vanderbilt.edu/consortium/modules/index.php) from the control center.
