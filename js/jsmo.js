@@ -8,6 +8,15 @@
 
         // Startup function for data entry pages with imagemaps
         start: function () {
+            /*
+             * Ensure idempotency: if this function has already run once (e.g., the
+             * form was re‑rendered after a language switch), first clean up any
+             * existing ImageMapster bindings and DOM elements before redrawing.
+             */
+            if (module._initialized) {
+                module.cleanup();
+            }
+            module._initialized = true;
             // Render each imagemap and create a pointer to it by field_name
             if (!module.data) module.data = {};
             module.data.fields = {};
@@ -26,6 +35,16 @@
 
             // Turn the form back on as the EM turns it off on page load
             $('#form').animate({ opacity: 1 }, 250);
+        },
+
+        // Cleanup function to remove imagemaps and bindings
+        cleanup: function () {
+            $('.imagemap').each(function () {
+                const $img = $('img', this);
+                try { $img.mapster('unbind'); } catch (e) { /* already unbound */ }
+                $(this).remove();
+            });
+            if (module.data) { module.data.fields = {}; }
         },
 
         // Startup function for online designer helper
