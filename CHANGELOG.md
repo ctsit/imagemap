@@ -1,3 +1,6 @@
+# imagemap 1.13.3 (released 2025-07-16)
+- Update README to remove REDCap version number from Prequisites section. (@pbchase)
+
 # imagemap 1.13.2 (released 2025-07-16)
 - Remove eval from imageMapster.js (@saipavan10-git, #70, #85)
 - Prevent duplicate images when switch lamnguage with MLM (@saipavan10-git, #80, #85)
