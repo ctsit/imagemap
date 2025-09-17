@@ -1,3 +1,6 @@
+# imagemap 1.13.4 (to be released)
+- Add Orient options to BODYPAINMAP and update example instrument and .xml files to show many flavors of BODYPAINMAP.
+
 # imagemap 1.13.3 (released 2025-07-16)
 - Update README to remove REDCap version number from Prequisites section. (@pbchase)
 
@@ -13,6 +16,12 @@
 - Add Grids Body Map (@schatto1, @saipavan10-git, @pbchase, #76, #77)
 - Rename instrument example files (@pbchase, #77)
 - Remove Andy Martin from config.json (@ChemiKyle)
+
+
+## [1.13.4] - 2025-09-17
+### Added
+- Added ORIENT options to BODYPAINMAP to reflect wishes of Dr. Sean Mackey at Stanford.  Updated the example .zip file to include many BODYPAINMAP permutations (@123andy)
+
 
 ## [1.12.0] - 2024-02-20
 ### Added
