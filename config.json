@@ -5,6 +5,11 @@
     "framework-version": 16,
     "authors": [
         {
+            "name": "Andy Martin",
+            "email": "andy123@stanford.edu",
+            "institution": "Stanford University"
+        },
+        {
             "name": "University of Florida CTS-IT",
             "email": "CTSIT-REDCAP-MODULE-SUPPO@LISTS.UFL.EDU",
             "institution": "University of Florida - CTSI"
