@@ -27,7 +27,7 @@ This REDCap module replaces an input, radio, or checkbox field with an image tha
 This module defines a new action tag: `@IMAGEMAP`. The possible values for this tag are:
 
 
-**`PAINMAP_MALE`**
+**`CHOIRBODYMAP_MALE`**
 
 <details>
 <summary>Keys and Values for CHOIRBODYMAP_MALE</summary>
@@ -116,7 +116,7 @@ Representation of a generic male body.
 ![CHOIRBODYMAP_MALE](./img/choirbodymap_male.png)
 
 
-**`PAINMAP_FEMALE`**
+**`CHOIRBODYMAP_FEMALE`**
 
 <details>
 <summary>Keys and Values for CHOIRBODYMAP_FEMALE</summary>
