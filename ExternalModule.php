@@ -48,11 +48,16 @@ class ExternalModule extends AbstractExternalModule {
         // This is a bit of a hack, but in surveys this value is set before the every_page_top hook is called
         $instrument = $_GET['page'];
 
+        // check instrument exists in project.
+        if(!array_key_exists($instrument, $Proj->forms)){
+            return;
+        }
+
         // TODO: Consider switching over to ActionTagHelper to support single-param overrides in imagemap
         // (such as hiding or showing the radio/checkboxes)
 
         // Check action-tags for this page
-        foreach (array_keys($Proj->forms[$instrument]['fields']) as $field_name) {
+        foreach (array_keys($Proj->forms[$instrument]['fields']?:[]) as $field_name) {
             $field_info = $Proj->metadata[$field_name];
 
             if (!$imagemap_name = Form::getValueInActionTag($field_info['misc'], $this->tag)) {

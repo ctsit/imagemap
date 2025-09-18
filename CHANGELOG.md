@@ -1,3 +1,7 @@
+# imagemap 1.14.0 (released 2025-09-18)
+- Revert "Remove Andy Martin from config.json" (@pbchase, #88)
+- Added ORIENT options to BODYPAINMAP to reflect wishes of Dr. Sean Mackey at Stanford.  Updated the example .zip file to include many BODYPAINMAP permutations (@123andy, #87)
+
 # imagemap 1.13.3 (released 2025-07-16)
 - Update README to remove REDCap version number from Prequisites section. (@pbchase)
 
