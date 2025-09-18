@@ -18,11 +18,6 @@
 - Remove Andy Martin from config.json (@ChemiKyle)
 
 
-## [1.13.4] - 2025-09-17
-### Added
-- Added ORIENT options to BODYPAINMAP to reflect wishes of Dr. Sean Mackey at Stanford.  Updated the example .zip file to include many BODYPAINMAP permutations (@123andy)
-
-
 ## [1.12.0] - 2024-02-20
 ### Added
 - Add NONEOFTHEABOVE tags to example project (@ChemiKyle)
