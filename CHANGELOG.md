@@ -1,5 +1,5 @@
-# imagemap 1.13.4 (to be released)
-- Add Orient options to BODYPAINMAP and update example instrument and .xml files to show many flavors of BODYPAINMAP.
+# imagemap 1.14.0 (2025-09-18)
+- Added ORIENT options to BODYPAINMAP to reflect the wishes of Dr. Sean Mackey at Stanford.  Updated the example .zip file to include many BODYPAINMAP permutations (@123andy)
 
 # imagemap 1.13.3 (released 2025-07-16)
 - Update README to remove REDCap version number from Prequisites section. (@pbchase)
