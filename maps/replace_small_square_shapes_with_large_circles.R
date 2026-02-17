@@ -1,11 +1,24 @@
 library(rvest)
 library(tidyverse)
 
-# Set the input and output file paths for the maps
-maps <- tribble(
-       ~old, ~new,
-       "maps/fibromyalgia_old.html", "maps/fibromyalgia.html",
-       "maps/mbody_old.html", "maps/mbody.html",
+# Historical one-time conversion tool:
+# This script was originally used to convert older image maps that used small
+# square areas into larger circular areas. The original input files
+# (e.g., "maps/fibromyalgia_old.html" and "maps/mbody_old.html") are no longer
+# present in the repository, so we do not hard-code any file paths here.
+#
+# To reuse this tool, define your own input/output map paths by populating
+# the `maps` tibble below, for example:
+#
+# maps <- tibble::tibble(
+#   old = c("path/to/your_old_map.html"),
+#   new = c("path/to/your_new_map.html")
+# )
+#
+# By default, `maps` is empty so running this script is a no-op.
+maps <- tibble::tibble(
+  old = character(),
+  new = character()
 )
 
 # Set the ratio of the circle's radius to the square's hypotenuse. 
