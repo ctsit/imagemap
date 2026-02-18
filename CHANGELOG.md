@@ -1,3 +1,6 @@
+# imagemap 1.14.2 (released 2026-02-18)
+- Fix broken links to examples in README.md (@pbchase, #89)
+
 # imagemap 1.14.1 (released 2026-02-18)
 - Remove width and height parameters from config.json (@pbchase, #90, #91, #92)
     - These parameters can cause issues in Safari on iOS 26.3 if they don't match the PNG dimensions.

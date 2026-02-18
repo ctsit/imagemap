@@ -1643,7 +1643,7 @@ Each region of an image is associated with a key, for example, the "Ankle (front
 
 ## Testing instrument
 
-This project includes an [Example Instrument](docs/all_maps_Instrument_Example.zip) that includes each of these image maps. It demonstrates different methods of using these image maps; which is suitable for testing or demonstration purposes. Some image maps are also available in their own `*_Instrument_Example.zip` in the [docs](docs/) folder.
+This project includes an [Example Instrument](https://github.com/ctsit/imagemap/raw/refs/heads/master/docs/all_maps_Instrument_Example.zip) that includes each of these image maps. It demonstrates different methods of using these image maps; which is suitable for testing or demonstration purposes. Some image maps are also available in their own `*_Instrument_Example.zip` in the [docs](https://github.com/ctsit/imagemap/tree/master/docs/) folder.
 
 
 ## Acknowledgements & Copyright
