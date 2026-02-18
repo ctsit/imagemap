@@ -1,3 +1,13 @@
+# imagemap 1.14.1 (released 2026-02-18)
+- Remove width and height parameters from config.json (@pbchase, #90, #91, #92)
+    - These parameters can cause issues in Safari on iOS 26.3 if they don't match the PNG dimensions.
+- Enlarge clickable regions in fibromyalgia.html and mbody.html (@pbchase, #92)
+    - Replace small squares with larger circles.
+    - Add replace_small_square_shapes_with_large_circles.R that rewrote the clickable regions.
+- Update example project and instrument (@pbchase, #92)
+    - Rename fields for readability and consistency.
+    - Change FR_REGION from checkbox to radio.
+
 # imagemap 1.14.0 (released 2025-09-18)
 - Revert "Remove Andy Martin from config.json" (@pbchase, #88)
 - Added ORIENT options to BODYPAINMAP to reflect wishes of Dr. Sean Mackey at Stanford.  Updated the example .zip file to include many BODYPAINMAP permutations (@123andy, #87)
