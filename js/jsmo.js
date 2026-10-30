@@ -221,6 +221,16 @@
                 }
             });
 
+            // Enable click-and-drag selection when requested
+            if (setting.draggable) {
+                module.setupDragging(img);
+            }
+
+            // Enable color painting when requested
+            if (setting.paintable) {
+                module.setupPainting(img, setting);
+            }
+
             // On mobile devices where the viewport is fixed in redcap it may be necessary to resize width
             if (isMobileDevice) {
                 $(img).attr('resize_check', 'true');
@@ -296,6 +306,75 @@
 
         },
 
+        // Restore selected paint regions and their intensity values
+        loadPaintAreaList: function (setting) {
+            const fieldName = setting.field;
+            const tr = setting.tr;
+
+            const img = $('img[field="' + fieldName + '"]', tr)
+                .not('.mapster_el');
+
+            const paintValues = {};
+
+            $('input[type=text][name="' + fieldName + '"]', tr)
+                .each(function () {
+                    const value = $(this).val();
+
+                    if (!value) {
+                        return;
+                    }
+
+                    value.split(',').forEach(function (item) {
+                        const parts = item.split(':');
+
+                        const key = parts[0];
+                        const savedIntensity = parts[1];
+
+                        const intensity = savedIntensity === 'NA'
+                            ? 'NA'
+                            : Number(savedIntensity);
+
+                        if (
+                            !key ||
+                            (
+                                intensity !== 'NA' &&
+                                (intensity < 1 || intensity > 10)
+                            )
+                        ) {
+                            return;
+                        }
+
+                        paintValues[key] = intensity;
+
+                        // Restore the saved color
+                        $(img).mapster('set_options', {
+                            areas: [{
+                                key: key,
+                                fillColor: module.getPaintColor(intensity),
+                                fillOpacity: 0.4
+                            }]
+                        });
+
+                        // Restore the selected region
+                        $(img).mapster(
+                            'set',
+                            true,
+                            key
+                        );
+                    });
+                });
+
+            $(img).data(
+                'paintValues',
+                paintValues
+            );
+
+            $(img).data(
+                'loadingPaintKeys',
+                Object.keys(paintValues)
+            );
+        },
+
         // Update the image map to match the field
         loadAreaList: function (setting, noneAboveOption = false) {
             const field_name = setting.field;
@@ -335,6 +414,12 @@
                         $(img).mapster('set', true, val);
                     }
                 });
+            } else if (
+                setting.type === 'text' &&
+                setting.paintable
+            ) {
+                // Paintable maps restore both regions and intensity
+                module.loadPaintAreaList(setting);
             } else if (setting.type === 'text') {
                 // If text - then process from list
                 // module.log("TEXT");
@@ -342,6 +427,73 @@
                     $(img).mapster('set', true, $(this).val());
                 });
             }
+        },
+
+        // Save selected paint regions and their intensity values
+        updatePaintAreaList: function (image, setting) {
+            const paintValues = $(image).data('paintValues') || {};
+            const selected = $(image).mapster('get');
+            const tr = setting.tr;
+
+            const loadingKeys = $(image).data(
+                'loadingPaintKeys'
+            );
+
+            if (loadingKeys) {
+                const selectedKeys = selected
+                    ? selected.split(',')
+                    : [];
+
+                const loaded = loadingKeys.every(
+                    function (key) {
+                        return selectedKeys.includes(key);
+                    }
+                );
+
+                if (loaded) {
+                    $(image).removeData(
+                        'loadingPaintKeys'
+                    );
+                }
+
+                return;
+            }
+
+            if (!selected) {
+                $(image).data('paintValues', {});
+
+                $('input[type=text][name="' + setting.field + '"]', tr)
+                    .val('')
+                    .blur()
+                    .change();
+
+                return;
+            }
+
+            const keys = selected.split(',').sort();
+
+            // Remove stored paint values for deselected regions
+            Object.keys(paintValues).forEach(function (key) {
+                if (!keys.includes(key)) {
+                    delete paintValues[key];
+                }
+            });
+
+            // Build key:intensity values for selected regions
+            const values = keys.map(function (key) {
+                const intensity = paintValues[key] || 'NA';
+
+                paintValues[key] = intensity;
+
+                return key + ':' + intensity;
+            });
+
+            $(image).data('paintValues', paintValues);
+
+            $('input[type=text][name="' + setting.field + '"]', tr)
+                .val(values.join(','))
+                .blur()
+                .change();
         },
 
         // Takes the values from the image map and saves them to the redcap form
@@ -387,6 +539,9 @@
                             //$(this).blur();
                         }
                     });
+                    
+                } else if (setting.type === 'text' && setting.paintable) {
+                    module.updatePaintAreaList(image, setting);
                 } else if (setting.type === 'text') {
                     // If input field is used to hold list, then update list
                     $('input[type=text][name="' + field_name + '"]', tr).each(function () {
@@ -403,6 +558,294 @@
                     });
                 }
             }
+        },
+
+                // Allow selecting map regions by clicking and dragging
+        setupDragging: function (img) {
+            const image = $(img).get(0);
+            const mapName = $(image).attr('usemap').replace('#', '');
+            const areas = $('map[name="' + mapName + '"] area');
+
+            let dragging = false;
+            let lastKey = null;
+
+            // Find the map region under the pointer
+            function getAreaKey(event) {
+                const rect = image.getBoundingClientRect();
+
+                // ImageMapster already scales the area coordinates
+                const x = event.clientX - rect.left;
+                const y = event.clientY - rect.top;
+
+                let key = null;
+
+                areas.each(function () {
+                    const coords = $(this)
+                        .attr('coords')
+                        .split(',')
+                        .map(Number);
+
+                    if (
+                        x >= coords[0] &&
+                        x < coords[2] &&
+                        y >= coords[1] &&
+                        y < coords[3]
+                    ) {
+                        key = $(this).attr('data-key');
+                        return false;
+                    }
+                });
+
+                return key;
+            }
+
+            // Select one region through ImageMapster
+            function selectArea(event) {
+                const key = getAreaKey(event);
+
+                if (!key || key === lastKey) {
+                    return;
+                }
+
+                lastKey = key;
+
+                const intensity = $(image).data(
+                    'paintIntensity'
+                );
+
+                if (intensity) {
+                    const color = module.getPaintColor(
+                        intensity
+                    );
+
+                    const paintValues =
+                        $(image).data('paintValues');
+
+                    const keys = module.getPaintKeys(
+                        key,
+                        areas
+                    );
+
+                    keys.forEach(function (paintKey) {
+                        paintValues[paintKey] = intensity;
+
+                        $(image).mapster('set_options', {
+                            areas: [{
+                                key: paintKey,
+                                fillColor: color,
+                                fillOpacity: 0.4
+                            }]
+                        });
+
+                        $(image).mapster(
+                            'set',
+                            true,
+                            paintKey
+                        );
+                    });
+
+                    return;
+                }
+
+                $(image).mapster('set', true, key);
+            }
+
+            // Listen on the container because Mapster sits over the image
+            const dragTarget = $(image).closest('.imagemap');
+
+            // Start tracking but leave normal clicks to ImageMapster
+            dragTarget.on(
+                'pointerdown.imagemapDrag',
+                function () {
+                    dragging = true;
+                    lastKey = null;
+                }
+            );
+
+            // Select regions only when the pointer moves
+            dragTarget.on(
+                'pointermove.imagemapDrag',
+                function (event) {
+                    if (!dragging) {
+                        return;
+                    }
+
+                    selectArea(event.originalEvent);
+                }
+            );
+
+            // Stop drag selection
+            $(document).on(
+                'pointerup.imagemapDrag',
+                function () {
+                    dragging = false;
+                    lastKey = null;
+                }
+            );
+        },
+
+        // Return the color used for each pain intensity
+        getPaintColor: function (intensity) {
+            const colors = {
+                'NA': 'D3D3D3',
+                1: 'ffe066',
+                2: 'ffd43b',
+                3: 'fcc419',
+                4: 'fab005',
+                5: 'f59f00',
+                6: 'f76707',
+                7: 'e8590c',
+                8: 'e03131',
+                9: 'c92a2a',
+                10: 'a51111'
+            };
+
+            return colors[intensity];
+        },
+
+                // Return the four cells in a 2x2 paint brush
+        getPaintKeys: function (key, areas) {
+            const match = key.match(/^c(\d+)r(\d+)$/);
+
+            if (!match) {
+                return [key];
+            }
+
+            const column = Number(match[1]);
+            const row = Number(match[2]);
+
+            const keys = [
+                `c${column}r${row}`,
+                `c${column + 1}r${row}`,
+                `c${column}r${row + 1}`,
+                `c${column + 1}r${row + 1}`
+            ];
+
+            return keys.filter(function (key) {
+                return areas.filter(
+                    '[data-key="' + key + '"]'
+                ).length;
+            });
+        },
+
+        // Allow map regions to be painted with pain intensity values
+        setupPainting: function (img, setting) {
+            const image = $(img).get(0);
+            const mapName = $(image).attr('usemap').replace('#', '');
+            const areas = $('map[name="' + mapName + '"] area');
+
+            // Store paint state on this image
+            $(image).data('paintIntensity', 'NA');
+            $(image).data('paintValues', {});
+
+            // Find the map region under the pointer
+            function getAreaKey(event) {
+                const rect = image.getBoundingClientRect();
+
+                // ImageMapster already scales the area coordinates
+                const x = event.clientX - rect.left;
+                const y = event.clientY - rect.top;
+
+                let key = null;
+
+                areas.each(function () {
+                    const coords = $(this)
+                        .attr('coords')
+                        .split(',')
+                        .map(Number);
+
+                    if (
+                        x >= coords[0] &&
+                        x < coords[2] &&
+                        y >= coords[1] &&
+                        y < coords[3]
+                    ) {
+                        key = $(this).attr('data-key');
+                        return false;
+                    }
+                });
+
+                return key;
+            }
+
+            // Add the 1-10 color scale above the map
+            const controls = $('<div/>')
+                .css({
+                    'margin-bottom': '10px',
+                    'text-align': 'center'
+                });
+
+            $('<button/>', {
+                type: 'button',
+                text: 'N/A'
+            })
+                .css({
+                    'margin-right': '4px',
+                    'background-color': '#' + module.getPaintColor('NA')
+                })
+                .on('click', function () {
+                    $(image).data('paintIntensity', 'NA');
+                })
+                .appendTo(controls);
+
+            for (let intensity = 1; intensity <= 10; intensity++) {
+                const color = module.getPaintColor(intensity);
+
+                $('<button/>', {
+                    type: 'button',
+                    text: intensity
+                })
+                    .css({
+                        'margin-right': '4px',
+                        'background-color': '#' + color
+                    })
+                    .on('click', function () {
+                        $(image).data(
+                            'paintIntensity',
+                            intensity
+                        );
+                    })
+                    .appendTo(controls);
+            }
+
+            const paintTarget = $(image).closest('.imagemap');
+
+            paintTarget.prepend(controls);
+
+            // Assign the active intensity before Mapster handles the click
+            paintTarget.on(
+                'pointerdown.imagemapPaint',
+                function (event) {
+                    const key = getAreaKey(
+                        event.originalEvent
+                    );
+
+                    if (!key) {
+                        return;
+                    }
+
+                    const keys = module.getPaintKeys(
+                        key,
+                        areas
+                    );
+
+                    const intensity = $(image).data('paintIntensity');
+                    const color = module.getPaintColor(intensity);
+                    const paintValues = $(image).data('paintValues');
+
+                    paintValues[key] = intensity;
+
+                    $(image).mapster('set_options', {
+                        areas: [{
+                            key: key,
+                            fillColor: color,
+                            fillOpacity: 0.4
+                        }]
+                    });
+
+                    $(image).data('paintValues', paintValues);
+                }
+            );
         },
 
         // Resize window to fit mobile or orientation changes
