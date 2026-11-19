@@ -356,8 +356,8 @@
         },
         "FR_REGION": {
             "name": "fr_region",
-            "alt": "French Region 2020 - R\u00e9gion Fran\u00e7aise 2020",
-            "desc": "French Region 2020 : to localize in one click a region - R\u00e9gion Fran\u00e7aise 2020 : Pour localiser en un clic une r\u00e9gion.",
+            "alt": "French Region 2020 - Région Française 2020",
+            "desc": "French Region 2020 : to localize in one click a region - Région Française 2020 : Pour localiser en un clic une région.",
             "options": "1,2,3,4,6,11,24,27,28,32,44,52,53,75,76,84,93,94",
             "data_dict_default": "1,GUADELOUPE | 2,MARTINIQUE | 3,GUYANE | 4,LA REUNION | 6,MAYOTTE | 11,ILE DE FRANCE | 24,CENTRE VAL DE LOIRE | 27,BOURGOGNE FRANCHE COMTE | 28,NORMANDIE | 32,HAUTS DE FRANCE | 44,GRAND EST | 52,PAYS DE LA LOIRE | 53,BRETAGNE | 75,NOUVELLE AQUITAINE | 76,OCCITANIE | 84,AUVERGNE RHONE ALPES | 93,PROVENCE ALPES COTE D AZUR | 94,CORSE",
             "image": "img/france_region_nb.png",
