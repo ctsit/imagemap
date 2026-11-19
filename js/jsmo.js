@@ -196,6 +196,8 @@
                 }
             }
 
+            setting.selectable = selectable;
+
             // Determine if multiselect (default) or single-select
             const singleSelect = 'singleSelect' in setting ? (setting.singleSelect == true) : false;
 
@@ -218,12 +220,16 @@
                     const image = this;
                     module.log("State Change", data, image);
                     module.updateAreaList(image, data);
+                },
+                onClick: function (data) {
+                    // Returning false cancels ImageMapster's default toggle
+                    return module.handleMapClick(imgTag.get(0), setting, data);
                 }
             });
 
             // Enable click-and-drag selection when requested
             if (setting.draggable) {
-                module.setupDragging(img);
+                module.setupDragging(img, setting);
             }
 
             // Enable color painting when requested
@@ -334,13 +340,7 @@
                             ? 'NA'
                             : Number(savedIntensity);
 
-                        if (
-                            !key ||
-                            (
-                                intensity !== 'NA' &&
-                                (intensity < 1 || intensity > 10)
-                            )
-                        ) {
+                        if (!key || !module.isValidIntensity(intensity)) {
                             return;
                         }
 
@@ -355,7 +355,9 @@
                             }]
                         });
 
-                        // Restore the selected region
+                        // Restore the selected region. Paintable maps are
+                        // never saved from onStateChange, so this cannot
+                        // overwrite the field while loading.
                         $(img).mapster(
                             'set',
                             true,
@@ -368,10 +370,14 @@
                 'paintValues',
                 paintValues
             );
+        },
 
-            $(img).data(
-                'loadingPaintKeys',
-                Object.keys(paintValues)
+        // True for 'NA' or a whole number from 1 to 10
+        isValidIntensity: function (intensity) {
+            return intensity === 'NA' || (
+                Number.isInteger(intensity) &&
+                intensity >= 1 &&
+                intensity <= 10
             );
         },
 
@@ -430,62 +436,30 @@
         },
 
         // Save selected paint regions and their intensity values
+        // Called explicitly after each user action (click or drag stroke),
+        // never from onStateChange.
         updatePaintAreaList: function (image, setting) {
             const paintValues = $(image).data('paintValues') || {};
             const selected = $(image).mapster('get');
             const tr = setting.tr;
 
-            const loadingKeys = $(image).data(
-                'loadingPaintKeys'
-            );
-
-            if (loadingKeys) {
-                const selectedKeys = selected
-                    ? selected.split(',')
-                    : [];
-
-                const loaded = loadingKeys.every(
-                    function (key) {
-                        return selectedKeys.includes(key);
-                    }
-                );
-
-                if (loaded) {
-                    $(image).removeData(
-                        'loadingPaintKeys'
-                    );
-                }
-
-                return;
-            }
-
-            if (!selected) {
-                $(image).data('paintValues', {});
-
-                $('input[type=text][name="' + setting.field + '"]', tr)
-                    .val('')
-                    .blur()
-                    .change();
-
-                return;
-            }
-
-            const keys = selected.split(',').sort();
+            const keys = selected ? selected.split(',').sort() : [];
+            const selectedKeys = new Set(keys);
 
             // Remove stored paint values for deselected regions
             Object.keys(paintValues).forEach(function (key) {
-                if (!keys.includes(key)) {
+                if (!selectedKeys.has(key)) {
                     delete paintValues[key];
                 }
             });
 
             // Build key:intensity values for selected regions
             const values = keys.map(function (key) {
-                const intensity = paintValues[key] || 'NA';
+                if (!(key in paintValues)) {
+                    paintValues[key] = 'NA';
+                }
 
-                paintValues[key] = intensity;
-
-                return key + ':' + intensity;
+                return key + ':' + paintValues[key];
             });
 
             $(image).data('paintValues', paintValues);
@@ -541,7 +515,10 @@
                     });
                     
                 } else if (setting.type === 'text' && setting.paintable) {
-                    module.updatePaintAreaList(image, setting);
+                    // Paintable maps save explicitly after each click or
+                    // drag stroke (see handleMapClick and setupDragging).
+                    // Saving here would also fire on load and would miss
+                    // recolors of regions that are already selected.
                 } else if (setting.type === 'text') {
                     // If input field is used to hold list, then update list
                     $('input[type=text][name="' + field_name + '"]', tr).each(function () {
@@ -560,14 +537,66 @@
             }
         },
 
-                // Allow selecting map regions by clicking and dragging
-        setupDragging: function (img) {
+        // ImageMapster onClick handler. Return false to cancel the default toggle.
+        handleMapClick: function (image, setting, data) {
+            if (!setting.paintable) {
+                return true;
+            }
+
+            if (!setting.selectable) {
+                return false;
+            }
+
+            const key = data.key;
+            const intensity = $(image).data('paintIntensity');
+            const paintValues = $(image).data('paintValues');
+            const isSelected = $(image).mapster('get', key);
+
+            if (isSelected && paintValues[key] === intensity) {
+                // Clicking a region with its own value erases it
+                $(image).mapster('set', false, key);
+                delete paintValues[key];
+            } else {
+                // Paint or recolor the region; never toggle it off
+                module.paintArea(image, key, intensity);
+            }
+
+            module.updatePaintAreaList(image, setting);
+
+            return false;
+        },
+
+        // Select one region and give it the color for an intensity value
+        paintArea: function (image, key, intensity) {
+            const paintValues = $(image).data('paintValues');
+
+            paintValues[key] = intensity;
+
+            $(image).mapster('set_options', {
+                areas: [{
+                    key: key,
+                    fillColor: module.getPaintColor(intensity),
+                    fillOpacity: 0.4
+                }]
+            });
+
+            // Re-select an already selected region so the new color is drawn
+            if ($(image).mapster('get', key)) {
+                $(image).mapster('set', false, key);
+            }
+
+            $(image).mapster('set', true, key);
+        },
+
+        // Allow selecting map regions by clicking and dragging
+        setupDragging: function (img, setting) {
             const image = $(img).get(0);
             const mapName = $(image).attr('usemap').replace('#', '');
             const areas = $('map[name="' + mapName + '"] area');
 
             let dragging = false;
             let lastKey = null;
+            let painted = false;
 
             // Find the map region under the pointer
             function getAreaKey(event) {
@@ -609,41 +638,14 @@
 
                 lastKey = key;
 
-                const intensity = $(image).data(
-                    'paintIntensity'
-                );
+                if (setting.paintable) {
+                    const intensity = $(image).data('paintIntensity');
 
-                if (intensity) {
-                    const color = module.getPaintColor(
-                        intensity
-                    );
-
-                    const paintValues =
-                        $(image).data('paintValues');
-
-                    const keys = module.getPaintKeys(
-                        key,
-                        areas
-                    );
-
-                    keys.forEach(function (paintKey) {
-                        paintValues[paintKey] = intensity;
-
-                        $(image).mapster('set_options', {
-                            areas: [{
-                                key: paintKey,
-                                fillColor: color,
-                                fillOpacity: 0.4
-                            }]
-                        });
-
-                        $(image).mapster(
-                            'set',
-                            true,
-                            paintKey
-                        );
+                    module.getPaintKeys(key, areas).forEach(function (paintKey) {
+                        module.paintArea(image, paintKey, intensity);
                     });
 
+                    painted = true;
                     return;
                 }
 
@@ -680,6 +682,12 @@
                 function () {
                     dragging = false;
                     lastKey = null;
+
+                    // Save the whole paint stroke once
+                    if (painted) {
+                        painted = false;
+                        module.updatePaintAreaList(image, setting);
+                    }
                 }
             );
         },
@@ -731,42 +739,10 @@
         // Allow map regions to be painted with pain intensity values
         setupPainting: function (img, setting) {
             const image = $(img).get(0);
-            const mapName = $(image).attr('usemap').replace('#', '');
-            const areas = $('map[name="' + mapName + '"] area');
 
             // Store paint state on this image
             $(image).data('paintIntensity', 'NA');
             $(image).data('paintValues', {});
-
-            // Find the map region under the pointer
-            function getAreaKey(event) {
-                const rect = image.getBoundingClientRect();
-
-                // ImageMapster already scales the area coordinates
-                const x = event.clientX - rect.left;
-                const y = event.clientY - rect.top;
-
-                let key = null;
-
-                areas.each(function () {
-                    const coords = $(this)
-                        .attr('coords')
-                        .split(',')
-                        .map(Number);
-
-                    if (
-                        x >= coords[0] &&
-                        x < coords[2] &&
-                        y >= coords[1] &&
-                        y < coords[3]
-                    ) {
-                        key = $(this).attr('data-key');
-                        return false;
-                    }
-                });
-
-                return key;
-            }
 
             // Add the 1-10 color scale above the map
             const controls = $('<div/>')
@@ -812,40 +788,7 @@
 
             paintTarget.prepend(controls);
 
-            // Assign the active intensity before Mapster handles the click
-            paintTarget.on(
-                'pointerdown.imagemapPaint',
-                function (event) {
-                    const key = getAreaKey(
-                        event.originalEvent
-                    );
-
-                    if (!key) {
-                        return;
-                    }
-
-                    const keys = module.getPaintKeys(
-                        key,
-                        areas
-                    );
-
-                    const intensity = $(image).data('paintIntensity');
-                    const color = module.getPaintColor(intensity);
-                    const paintValues = $(image).data('paintValues');
-
-                    paintValues[key] = intensity;
-
-                    $(image).mapster('set_options', {
-                        areas: [{
-                            key: key,
-                            fillColor: color,
-                            fillOpacity: 0.4
-                        }]
-                    });
-
-                    $(image).data('paintValues', paintValues);
-                }
-            );
+            // Single clicks are handled by handleMapClick via Mapster's onClick
         },
 
         // Resize window to fit mobile or orientation changes
