@@ -44,6 +44,8 @@
                 try { $img.mapster('unbind'); } catch (e) { /* already unbound */ }
                 $(this).remove();
             });
+            // Remove document-level drag handlers added by setupDragging
+            $(document).off('.imagemapDrag');
             if (module.data) { module.data.fields = {}; }
         },
 
@@ -227,13 +229,14 @@
                 }
             });
 
-            // Enable click-and-drag selection when requested
-            if (setting.draggable) {
+            // Enable click-and-drag selection when requested (not on read-only views)
+            if (setting.draggable && selectable) {
                 module.setupDragging(img, setting);
             }
 
-            // Enable color painting when requested
-            if (setting.paintable) {
+            // Enable color painting when requested (not on read-only views).
+            // Saved colors are still restored by loadAreaList below.
+            if (setting.paintable && selectable) {
                 module.setupPainting(img, setting);
             }
 
@@ -539,6 +542,12 @@
 
         // ImageMapster onClick handler. Return false to cancel the default toggle.
         handleMapClick: function (image, setting, data) {
+            // The pointer was dragged; the drag already handled selection
+            if ($(image).data('suppressClick')) {
+                $(image).data('suppressClick', false);
+                return false;
+            }
+
             if (!setting.paintable) {
                 return true;
             }
@@ -588,50 +597,92 @@
             $(image).mapster('set', true, key);
         },
 
+        // Build a fast lookup from a pointer position to a map region key.
+        // Rect coords are parsed once, in natural image pixels, and the pointer
+        // is scaled to match. This avoids re-reading every <area> on each
+        // pointermove and does not depend on Mapster rescaling the coords.
+        // Only shape="rect" areas are hit-tested.
+        buildHitTester: function (image) {
+            const mapName = $(image).attr('usemap').replace('#', '');
+            const rects = [];
+            const keys = new Set();
+
+            $('map[name="' + mapName + '"] area').each(function () {
+                const key = $(this).attr('data-key');
+
+                if (!key) {
+                    return;
+                }
+
+                keys.add(key);
+
+                const shape = ($(this).attr('shape') || 'rect').toLowerCase();
+
+                if (shape !== 'rect') {
+                    return;
+                }
+
+                const c = ($(this).attr('coords') || '').split(',').map(Number);
+
+                if (c.length === 4 && c.every(Number.isFinite)) {
+                    rects.push({ key: key, x1: c[0], y1: c[1], x2: c[2], y2: c[3] });
+                }
+            });
+
+            return {
+                has: function (key) {
+                    return keys.has(key);
+                },
+                keyAt: function (event) {
+                    const rect = image.getBoundingClientRect();
+
+                    if (!rect.width) {
+                        return null;
+                    }
+
+                    const scale = image.naturalWidth
+                        ? image.naturalWidth / rect.width
+                        : 1;
+                    const x = (event.clientX - rect.left) * scale;
+                    const y = (event.clientY - rect.top) * scale;
+
+                    for (let i = 0; i < rects.length; i++) {
+                        const r = rects[i];
+
+                        if (x >= r.x1 && x < r.x2 && y >= r.y1 && y < r.y2) {
+                            return r.key;
+                        }
+                    }
+
+                    return null;
+                }
+            };
+        },
+
         // Allow selecting map regions by clicking and dragging
         setupDragging: function (img, setting) {
             const image = $(img).get(0);
-            const mapName = $(image).attr('usemap').replace('#', '');
-            const areas = $('map[name="' + mapName + '"] area');
+            const hitTester = module.buildHitTester(image);
 
-            let dragging = false;
+            let armed = false;      // pointer is down on the map
+            let active = false;     // pointer has left the starting region
+            let startKey = null;
             let lastKey = null;
             let painted = false;
 
-            // Find the map region under the pointer
-            function getAreaKey(event) {
-                const rect = image.getBoundingClientRect();
+            // Paint the 2x2 brush whose top-left cell is anchorKey
+            function paintBrush(anchorKey) {
+                const intensity = $(image).data('paintIntensity');
 
-                // ImageMapster already scales the area coordinates
-                const x = event.clientX - rect.left;
-                const y = event.clientY - rect.top;
-
-                let key = null;
-
-                areas.each(function () {
-                    const coords = $(this)
-                        .attr('coords')
-                        .split(',')
-                        .map(Number);
-
-                    if (
-                        x >= coords[0] &&
-                        x < coords[2] &&
-                        y >= coords[1] &&
-                        y < coords[3]
-                    ) {
-                        key = $(this).attr('data-key');
-                        return false;
-                    }
+                module.getPaintKeys(anchorKey, hitTester).forEach(function (paintKey) {
+                    module.paintArea(image, paintKey, intensity);
                 });
 
-                return key;
+                painted = true;
             }
 
-            // Select one region through ImageMapster
-            function selectArea(event) {
-                const key = getAreaKey(event);
-
+            // Select (or paint) one region through ImageMapster
+            function selectArea(key) {
                 if (!key || key === lastKey) {
                     return;
                 }
@@ -639,54 +690,99 @@
                 lastKey = key;
 
                 if (setting.paintable) {
-                    const intensity = $(image).data('paintIntensity');
-
-                    module.getPaintKeys(key, areas).forEach(function (paintKey) {
-                        module.paintArea(image, paintKey, intensity);
-                    });
-
-                    painted = true;
+                    paintBrush(key);
                     return;
                 }
 
                 $(image).mapster('set', true, key);
             }
 
+            function endStroke() {
+                armed = false;
+                active = false;
+                startKey = null;
+                lastKey = null;
+
+                // Save the whole paint stroke once
+                if (painted) {
+                    painted = false;
+                    module.updatePaintAreaList(image, setting);
+                }
+            }
+
             // Listen on the container because Mapster sits over the image
             const dragTarget = $(image).closest('.imagemap');
 
-            // Start tracking but leave normal clicks to ImageMapster
+            // Without this, touch browsers turn a drag into a scroll and
+            // send pointercancel. The page cannot be scrolled by swiping on
+            // the map itself.
+            dragTarget.css('touch-action', 'none');
+
+            // Arm the drag but leave plain clicks to ImageMapster
             dragTarget.on(
                 'pointerdown.imagemapDrag',
-                function () {
-                    dragging = true;
+                function (event) {
+                    $(image).data('suppressClick', false);
+
+                    startKey = hitTester.keyAt(event.originalEvent);
+                    armed = startKey !== null;
+                    active = false;
                     lastKey = null;
                 }
             );
 
-            // Select regions only when the pointer moves
+            // Start selecting only once the pointer reaches a different
+            // region, so a slightly shaky click is still just a click
             dragTarget.on(
                 'pointermove.imagemapDrag',
                 function (event) {
-                    if (!dragging) {
+                    if (!armed) {
                         return;
                     }
 
-                    selectArea(event.originalEvent);
+                    // The button was released somewhere we did not see
+                    if (event.originalEvent.buttons === 0) {
+                        endStroke();
+                        return;
+                    }
+
+                    const key = hitTester.keyAt(event.originalEvent);
+
+                    if (!active) {
+                        if (!key || key === startKey) {
+                            return;
+                        }
+
+                        active = true;
+
+                        // This gesture is a drag; ignore the click that follows
+                        $(image).data('suppressClick', true);
+
+                        // Moving into a neighboring cell paints one 2x2 brush
+                        // covering both cells, so the smallest drag is 2x2
+                        const anchor = setting.paintable
+                            ? module.getBrushAnchor(startKey, key)
+                            : null;
+
+                        if (anchor) {
+                            paintBrush(anchor);
+                            lastKey = key;
+                            return;
+                        }
+
+                        selectArea(startKey);
+                    }
+
+                    selectArea(key);
                 }
             );
 
-            // Stop drag selection
+            // Stop drag selection. These handlers are removed in cleanup().
             $(document).on(
-                'pointerup.imagemapDrag',
+                'pointerup.imagemapDrag pointercancel.imagemapDrag',
                 function () {
-                    dragging = false;
-                    lastKey = null;
-
-                    // Save the whole paint stroke once
-                    if (painted) {
-                        painted = false;
-                        module.updatePaintAreaList(image, setting);
+                    if (armed) {
+                        endStroke();
                     }
                 }
             );
@@ -711,8 +807,28 @@
             return colors[intensity];
         },
 
-                // Return the four cells in a 2x2 paint brush
-        getPaintKeys: function (key, areas) {
+        // For two adjacent grid cells (including diagonal neighbors), return
+        // the top-left cell of the 2x2 block that covers both; otherwise null
+        getBrushAnchor: function (keyA, keyB) {
+            const a = /^c(\d+)r(\d+)$/.exec(keyA || '');
+            const b = /^c(\d+)r(\d+)$/.exec(keyB || '');
+
+            if (!a || !b) {
+                return null;
+            }
+
+            const ca = Number(a[1]), ra = Number(a[2]);
+            const cb = Number(b[1]), rb = Number(b[2]);
+
+            if (Math.abs(ca - cb) > 1 || Math.abs(ra - rb) > 1) {
+                return null;
+            }
+
+            return 'c' + Math.min(ca, cb) + 'r' + Math.min(ra, rb);
+        },
+
+        // Return the cells of a 2x2 paint brush that exist on this map
+        getPaintKeys: function (key, hitTester) {
             const match = key.match(/^c(\d+)r(\d+)$/);
 
             if (!match) {
@@ -730,9 +846,7 @@
             ];
 
             return keys.filter(function (key) {
-                return areas.filter(
-                    '[data-key="' + key + '"]'
-                ).length;
+                return hitTester.has(key);
             });
         },
 
@@ -751,38 +865,39 @@
                     'text-align': 'center'
                 });
 
-            $('<button/>', {
-                type: 'button',
-                text: 'N/A'
-            })
-                .css({
-                    'margin-right': '4px',
-                    'background-color': '#' + module.getPaintColor('NA')
-                })
-                .on('click', function () {
-                    $(image).data('paintIntensity', 'NA');
-                })
-                .appendTo(controls);
+            // Outline the button for the active value
+            function markActive(button) {
+                controls.children('button')
+                    .attr('aria-pressed', 'false')
+                    .css('outline', 'none');
 
-            for (let intensity = 1; intensity <= 10; intensity++) {
-                const color = module.getPaintColor(intensity);
+                $(button)
+                    .attr('aria-pressed', 'true')
+                    .css({
+                        'outline': '3px solid #000',
+                        'outline-offset': '1px'
+                    });
+            }
 
-                $('<button/>', {
+            ['NA', 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].forEach(function (intensity) {
+                const button = $('<button/>', {
                     type: 'button',
-                    text: intensity
+                    text: intensity === 'NA' ? 'N/A' : intensity
                 })
                     .css({
                         'margin-right': '4px',
-                        'background-color': '#' + color
+                        'background-color': '#' + module.getPaintColor(intensity)
                     })
                     .on('click', function () {
-                        $(image).data(
-                            'paintIntensity',
-                            intensity
-                        );
+                        $(image).data('paintIntensity', intensity);
+                        markActive(this);
                     })
                     .appendTo(controls);
-            }
+
+                if (intensity === 'NA') {
+                    markActive(button);
+                }
+            });
 
             const paintTarget = $(image).closest('.imagemap');
 
