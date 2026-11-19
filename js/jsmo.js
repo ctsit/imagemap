@@ -339,9 +339,7 @@
                         const key = parts[0];
                         const savedIntensity = parts[1];
 
-                        const intensity = savedIntensity === 'NA'
-                            ? 'NA'
-                            : Number(savedIntensity);
+                        const intensity = Number(savedIntensity);
 
                         if (!key || !module.isValidIntensity(intensity)) {
                             return;
@@ -375,13 +373,26 @@
             );
         },
 
-        // True for 'NA' or a whole number from 1 to 10
+        // True for a whole number from 1 to 10
         isValidIntensity: function (intensity) {
-            return intensity === 'NA' || (
-                Number.isInteger(intensity) &&
+            return Number.isInteger(intensity) &&
                 intensity >= 1 &&
-                intensity <= 10
-            );
+                intensity <= 10;
+        },
+
+        // True if a scale value is chosen; otherwise show the inline prompt
+        requireIntensity: function (image) {
+            if (module.isValidIntensity($(image).data('paintIntensity'))) {
+                return true;
+            }
+
+            const prompt = $(image).data('paintPrompt');
+
+            if (prompt) {
+                prompt.show();
+            }
+
+            return false;
         },
 
         // Update the image map to match the field
@@ -456,14 +467,15 @@
                 }
             });
 
-            // Build key:intensity values for selected regions
-            const values = keys.map(function (key) {
-                if (!(key in paintValues)) {
-                    paintValues[key] = 'NA';
-                }
-
-                return key + ':' + paintValues[key];
-            });
+            // Build key:intensity values for selected regions. Every paint
+            // path stores an intensity, so keys without one are skipped.
+            const values = keys
+                .filter(function (key) {
+                    return module.isValidIntensity(paintValues[key]);
+                })
+                .map(function (key) {
+                    return key + ':' + paintValues[key];
+                });
 
             $(image).data('paintValues', paintValues);
 
@@ -553,6 +565,11 @@
             }
 
             if (!setting.selectable) {
+                return false;
+            }
+
+            // A scale value must be chosen before painting or erasing
+            if (!module.requireIntensity(image)) {
                 return false;
             }
 
@@ -728,6 +745,12 @@
                     armed = startKey !== null;
                     active = false;
                     lastKey = null;
+
+                    // A paint drag needs a chosen scale value. The click that
+                    // follows is handled (and refused) by handleMapClick.
+                    if (armed && setting.paintable && !module.requireIntensity(image)) {
+                        armed = false;
+                    }
                 }
             );
 
@@ -791,7 +814,6 @@
         // Return the color used for each pain intensity
         getPaintColor: function (intensity) {
             const colors = {
-                'NA': 'D3D3D3',
                 1: 'ffe066',
                 2: 'ffd43b',
                 3: 'fcc419',
@@ -854,8 +876,8 @@
         setupPainting: function (img, setting) {
             const image = $(img).get(0);
 
-            // Store paint state on this image
-            $(image).data('paintIntensity', 'NA');
+            // Store paint state on this image. No value is chosen at load.
+            $(image).data('paintIntensity', null);
             $(image).data('paintValues', {});
 
             // Add the 1-10 color scale above the map
@@ -879,10 +901,26 @@
                     });
             }
 
-            ['NA', 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].forEach(function (intensity) {
-                const button = $('<button/>', {
+            // Shown when the user tries to paint before choosing a value
+            const prompt = $('<div/>', {
+                role: 'alert',
+                text: 'Choose a value on the scale before painting.'
+            })
+                .css({
+                    'color': '#c00',
+                    'font-weight': 'bold',
+                    'text-align': 'center',
+                    'margin-bottom': '10px'
+                })
+                .hide();
+
+            $(image).data('paintPrompt', prompt);
+
+            for (let intensity = 1; intensity <= 10; intensity++) {
+                $('<button/>', {
                     type: 'button',
-                    text: intensity === 'NA' ? 'N/A' : intensity
+                    text: intensity,
+                    'aria-pressed': 'false'
                 })
                     .css({
                         'margin-right': '4px',
@@ -891,17 +929,14 @@
                     .on('click', function () {
                         $(image).data('paintIntensity', intensity);
                         markActive(this);
+                        prompt.hide();
                     })
                     .appendTo(controls);
-
-                if (intensity === 'NA') {
-                    markActive(button);
-                }
-            });
+            }
 
             const paintTarget = $(image).closest('.imagemap');
 
-            paintTarget.prepend(controls);
+            paintTarget.prepend(controls, prompt);
 
             // Single clicks are handled by handleMapClick via Mapster's onClick
         },
