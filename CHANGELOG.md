@@ -1,3 +1,11 @@
+# imagemap 1.15.0 (released 2026-11-20)
+- Add pain intensity body maps: female and male, front and back (@fayeholt, @pbchase, #95)
+- Add optional click-and-drag selection via the `draggable` map setting (@fayeholt, @pbchase, #95)
+- Add optional 1-10 color-scale painting via the `paintable` map setting, with a 2x2 drag brush and Undo (@fayeholt, @pbchase, #95)
+- Add example instrument for the pain intensity body maps (@fayeholt, @pbchase, #95)
+- Declare @IMAGEMAP in config.json action-tags (@pbchase, #95)
+- Link documentation.php to example instruments on GitHub (@pbchase, #95)
+
 # imagemap 1.14.2 (released 2026-02-18)
 - Fix broken links to examples in README.md (@pbchase, #89)
 
