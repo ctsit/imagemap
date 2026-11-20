@@ -573,6 +573,7 @@
                 return false;
             }
 
+            const snapshot = module.beginPaintOp(image);
             const key = data.key;
             const intensity = $(image).data('paintIntensity');
             const paintValues = $(image).data('paintValues');
@@ -588,30 +589,137 @@
             }
 
             module.updatePaintAreaList(image, setting);
+            module.commitPaintOp(image, snapshot);
 
             return false;
         },
 
-        // Select one region and give it the color for an intensity value
-        paintArea: function (image, key, intensity) {
-            const paintValues = $(image).data('paintValues');
+        // Undo history for paintable maps.
+        // Each entry is a copy of paintValues taken before one click or one
+        // drag stroke. The history starts from the values loaded with the
+        // page and lives only until the page is reloaded or submitted.
+        // Choosing a scale value is not an undoable step.
+        beginPaintOp: function (image) {
+            return Object.assign({}, $(image).data('paintValues'));
+        },
 
-            paintValues[key] = intensity;
+        // Record the snapshot if the operation changed anything
+        commitPaintOp: function (image, snapshot) {
+            const current = $(image).data('paintValues');
+            const before = Object.keys(snapshot);
+            const changed = before.length !== Object.keys(current).length ||
+                before.some(function (key) {
+                    return current[key] !== snapshot[key];
+                });
 
-            $(image).mapster('set_options', {
-                areas: [{
-                    key: key,
-                    fillColor: module.getPaintColor(intensity),
-                    fillOpacity: 0.4
-                }]
-            });
-
-            // Re-select an already selected region so the new color is drawn
-            if ($(image).mapster('get', key)) {
-                $(image).mapster('set', false, key);
+            if (!changed) {
+                return;
             }
 
-            $(image).mapster('set', true, key);
+            const history = $(image).data('paintUndo');
+
+            history.push(snapshot);
+
+            // Keep memory bounded on very long sessions
+            if (history.length > 100) {
+                history.shift();
+            }
+
+            module.updateUndoButton(image);
+        },
+
+        // Restore the state from before the most recent operation
+        undoPaint: function (image, setting) {
+            const history = $(image).data('paintUndo');
+            const snapshot = history.pop();
+
+            if (!snapshot) {
+                return;
+            }
+
+            const current = $(image).data('paintValues');
+
+            // Regions added since the snapshot
+            const remove = Object.keys(current).filter(function (key) {
+                return !(key in snapshot);
+            });
+
+            // Regions that were removed or recolored since the snapshot
+            const restore = {};
+
+            Object.keys(snapshot).forEach(function (key) {
+                if (current[key] !== snapshot[key]) {
+                    restore[key] = snapshot[key];
+                }
+            });
+
+            // One batched update instead of one redraw per region
+            module.paintAreas(image, restore, remove);
+
+            module.updatePaintAreaList(image, setting);
+            module.updateUndoButton(image);
+        },
+
+        updateUndoButton: function (image) {
+            const button = $(image).data('paintUndoButton');
+
+            if (button) {
+                button.prop('disabled', $(image).data('paintUndo').length === 0);
+            }
+        },
+
+        // Select one region and give it the color for an intensity value
+        paintArea: function (image, key, intensity) {
+            const values = {};
+
+            values[key] = intensity;
+            module.paintAreas(image, values);
+        },
+
+        // Paint several regions ({key: intensity}) and deselect the regions in
+        // `remove`, with as few ImageMapster redraws as possible.
+        //
+        // In ImageMapster, each mapster('set', false, key) call rebuilds the
+        // canvas and redraws every selected region. One call with a
+        // comma-separated key list deselects them all and redraws once.
+        // Selecting a region that isn't selected only draws that region.
+        paintAreas: function (image, values, remove) {
+            const paintValues = $(image).data('paintValues');
+            const keys = Object.keys(values);
+            const deselect = (remove || []).slice();
+
+            keys.forEach(function (key) {
+                paintValues[key] = values[key];
+
+                // Re-select an already selected region so the new color is drawn
+                if ($(image).mapster('get', key)) {
+                    deselect.push(key);
+                }
+            });
+
+            (remove || []).forEach(function (key) {
+                delete paintValues[key];
+            });
+
+            if (keys.length) {
+                $(image).mapster('set_options', {
+                    areas: keys.map(function (key) {
+                        return {
+                            key: key,
+                            fillColor: module.getPaintColor(values[key]),
+                            fillOpacity: 0.4
+                        };
+                    })
+                });
+            }
+
+            if (deselect.length) {
+                $(image).mapster('set', false, deselect.join(','));
+            }
+
+            if (keys.length) {
+                $(image).mapster('set', true, keys.join(','));
+            }
         },
 
         // Build a fast lookup from a pointer position to a map region key.
@@ -686,14 +794,19 @@
             let startKey = null;
             let lastKey = null;
             let painted = false;
+            let strokeSnapshot = null;  // paint state before this stroke, for undo
 
             // Paint the 2x2 brush whose top-left cell is anchorKey
             function paintBrush(anchorKey) {
                 const intensity = $(image).data('paintIntensity');
 
+                const values = {};
+
                 module.getPaintKeys(anchorKey, hitTester).forEach(function (paintKey) {
-                    module.paintArea(image, paintKey, intensity);
+                    values[paintKey] = intensity;
                 });
+
+                module.paintAreas(image, values);
 
                 painted = true;
             }
@@ -720,11 +833,14 @@
                 startKey = null;
                 lastKey = null;
 
-                // Save the whole paint stroke once
+                // Save the whole paint stroke once; it is one undo step
                 if (painted) {
                     painted = false;
                     module.updatePaintAreaList(image, setting);
+                    module.commitPaintOp(image, strokeSnapshot);
                 }
+
+                strokeSnapshot = null;
             }
 
             // Listen on the container because Mapster sits over the image
@@ -751,6 +867,10 @@
                     if (armed && setting.paintable && !module.requireIntensity(image)) {
                         armed = false;
                     }
+
+                    strokeSnapshot = armed && setting.paintable
+                        ? module.beginPaintOp(image)
+                        : null;
                 }
             );
 
@@ -879,6 +999,7 @@
             // Store paint state on this image. No value is chosen at load.
             $(image).data('paintIntensity', null);
             $(image).data('paintValues', {});
+            $(image).data('paintUndo', []);
 
             // Add the 1-10 color scale above the map
             const controls = $('<div/>')
@@ -889,7 +1010,7 @@
 
             // Outline the button for the active value
             function markActive(button) {
-                controls.children('button')
+                controls.children('button.imagemap-scale')
                     .attr('aria-pressed', 'false')
                     .css('outline', 'none');
 
@@ -920,6 +1041,7 @@
                 $('<button/>', {
                     type: 'button',
                     text: intensity,
+                    'class': 'imagemap-scale',
                     'aria-pressed': 'false'
                 })
                     .css({
@@ -933,6 +1055,20 @@
                     })
                     .appendTo(controls);
             }
+
+            // Undo the most recent click or drag stroke, repeatedly
+            const undoButton = $('<button/>', {
+                type: 'button',
+                text: 'Undo'
+            })
+                .css('margin-left', '12px')
+                .prop('disabled', true)
+                .on('click', function () {
+                    module.undoPaint(image, setting);
+                })
+                .appendTo(controls);
+
+            $(image).data('paintUndoButton', undoButton);
 
             const paintTarget = $(image).closest('.imagemap');
 
