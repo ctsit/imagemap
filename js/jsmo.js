@@ -44,6 +44,8 @@
                 try { $img.mapster('unbind'); } catch (e) { /* already unbound */ }
                 $(this).remove();
             });
+            // Remove document-level drag handlers added by setupDragging
+            $(document).off('.imagemapDrag');
             if (module.data) { module.data.fields = {}; }
         },
 
@@ -63,51 +65,30 @@
                     return false;
                 }
 
-                // Aux function that checks if text matches the "@HIDECHOICE" string.
-                const isDefaultLabelColumn = function () {
-                    return $(this).text() === '@HIDECHOICE';
-                }
-
-                // Getting @HIDECHOICE row from action tags help table.
-                const $default_action_tag = $popup.find('td').filter(isDefaultLabelColumn).parent();
-                if ($default_action_tag.length !== 1) {
-                    return false;
-                }
-
                 const tag_name = '@IMAGEMAP';
 
-                // Create the help text
-                let descr = $('<div></div>')
-                    .addClass('imagemap-container')
-                    .html('Converts a radio, checkbox, or text field into a clickable image. For example, to display a male body '
-                        + 'with clickable body parts, you may use <nobr>@IMAGEMAP=PAINMAP_MALE</nobr>.  For a full list of available '
-                        + 'image maps and details about options, please reference the:<br>');
+                // Link to this module's documentation page, which lists every image map
                 const btn = $('<a></a>')
+                    .addClass('imagemap-doc-link')
                     .attr('href', module.data.helpUrl)
                     .attr('target', '_BLANK')
                     .append(
                         $('<div></div>')
                             .addClass('btn btn-xs btn-primary')
                             .text('Full Documentation')
-                    )
-                    .appendTo(descr);
+                    );
 
-                // Creating a new action tag row.
-                const $new_action_tag = $default_action_tag.clone();
-                const $cols = $new_action_tag.children('td');
-                const $button = $cols.find('button');
+                // REDCap lists @IMAGEMAP from the "action-tags" entry in
+                // config.json. Add the documentation link to that row.
+                const $tag_row = $popup.find('td').filter(function () {
+                    return $(this).text().trim() === tag_name;
+                }).parent().first();
 
-                // Column 1: updating button behavior.
-                $button.attr('onclick', $button.attr('onclick').replace('@HIDECHOICE', tag_name));
+                const $descr_cell = $tag_row.children('td').last();
 
-                // Columns 2: updating action tag label.
-                $cols.filter(isDefaultLabelColumn).text(tag_name);
-
-                // Column 3: updating action tag description.
-                $cols.last().html(descr);
-
-                // Placing new action tag.
-                $new_action_tag.insertAfter($default_action_tag);
+                if ($descr_cell.length && $descr_cell.find('.imagemap-doc-link').length === 0) {
+                    $descr_cell.append('<br>').append(btn);
+                }
             });
         },
 
@@ -196,6 +177,8 @@
                 }
             }
 
+            setting.selectable = selectable;
+
             // Determine if multiselect (default) or single-select
             const singleSelect = 'singleSelect' in setting ? (setting.singleSelect == true) : false;
 
@@ -218,8 +201,23 @@
                     const image = this;
                     module.log("State Change", data, image);
                     module.updateAreaList(image, data);
+                },
+                onClick: function (data) {
+                    // Returning false cancels ImageMapster's default toggle
+                    return module.handleMapClick(imgTag.get(0), setting, data);
                 }
             });
+
+            // Enable click-and-drag selection when requested (not on read-only views)
+            if (setting.draggable && selectable) {
+                module.setupDragging(img, setting);
+            }
+
+            // Enable color painting when requested (not on read-only views).
+            // Saved colors are still restored by loadAreaList below.
+            if (setting.paintable && selectable) {
+                module.setupPainting(img, setting);
+            }
 
             // On mobile devices where the viewport is fixed in redcap it may be necessary to resize width
             if (isMobileDevice) {
@@ -296,6 +294,86 @@
 
         },
 
+        // Restore selected paint regions and their intensity values
+        loadPaintAreaList: function (setting) {
+            const fieldName = setting.field;
+            const tr = setting.tr;
+
+            const img = $('img[field="' + fieldName + '"]', tr)
+                .not('.mapster_el');
+
+            const paintValues = {};
+
+            $('input[type=text][name="' + fieldName + '"]', tr)
+                .each(function () {
+                    const value = $(this).val();
+
+                    if (!value) {
+                        return;
+                    }
+
+                    value.split(',').forEach(function (item) {
+                        const parts = item.split(':');
+
+                        const key = parts[0];
+                        const savedIntensity = parts[1];
+
+                        const intensity = Number(savedIntensity);
+
+                        if (!key || !module.isValidIntensity(intensity)) {
+                            return;
+                        }
+
+                        paintValues[key] = intensity;
+
+                        // Restore the saved color
+                        $(img).mapster('set_options', {
+                            areas: [{
+                                key: key,
+                                fillColor: module.getPaintColor(intensity),
+                                fillOpacity: 0.4
+                            }]
+                        });
+
+                        // Restore the selected region. Paintable maps are
+                        // never saved from onStateChange, so this cannot
+                        // overwrite the field while loading.
+                        $(img).mapster(
+                            'set',
+                            true,
+                            key
+                        );
+                    });
+                });
+
+            $(img).data(
+                'paintValues',
+                paintValues
+            );
+        },
+
+        // True for a whole number from 1 to 10
+        isValidIntensity: function (intensity) {
+            return Number.isInteger(intensity) &&
+                intensity >= 1 &&
+                intensity <= 10;
+        },
+
+        // True if a scale value is chosen; otherwise show the inline prompt
+        requireIntensity: function (image) {
+            if (module.isValidIntensity($(image).data('paintIntensity'))) {
+                return true;
+            }
+
+            const prompt = $(image).data('paintPrompt');
+
+            if (prompt) {
+                prompt.show();
+            }
+
+            return false;
+        },
+
         // Update the image map to match the field
         loadAreaList: function (setting, noneAboveOption = false) {
             const field_name = setting.field;
@@ -335,6 +413,12 @@
                         $(img).mapster('set', true, val);
                     }
                 });
+            } else if (
+                setting.type === 'text' &&
+                setting.paintable
+            ) {
+                // Paintable maps restore both regions and intensity
+                module.loadPaintAreaList(setting);
             } else if (setting.type === 'text') {
                 // If text - then process from list
                 // module.log("TEXT");
@@ -342,6 +426,42 @@
                     $(img).mapster('set', true, $(this).val());
                 });
             }
+        },
+
+        // Save selected paint regions and their intensity values
+        // Called explicitly after each user action (click or drag stroke),
+        // never from onStateChange.
+        updatePaintAreaList: function (image, setting) {
+            const paintValues = $(image).data('paintValues') || {};
+            const selected = $(image).mapster('get');
+            const tr = setting.tr;
+
+            const keys = selected ? selected.split(',').sort() : [];
+            const selectedKeys = new Set(keys);
+
+            // Remove stored paint values for deselected regions
+            Object.keys(paintValues).forEach(function (key) {
+                if (!selectedKeys.has(key)) {
+                    delete paintValues[key];
+                }
+            });
+
+            // Build key:intensity values for selected regions. Every paint
+            // path stores an intensity, so keys without one are skipped.
+            const values = keys
+                .filter(function (key) {
+                    return module.isValidIntensity(paintValues[key]);
+                })
+                .map(function (key) {
+                    return key + ':' + paintValues[key];
+                });
+
+            $(image).data('paintValues', paintValues);
+
+            $('input[type=text][name="' + setting.field + '"]', tr)
+                .val(values.join(','))
+                .blur()
+                .change();
         },
 
         // Takes the values from the image map and saves them to the redcap form
@@ -387,6 +507,12 @@
                             //$(this).blur();
                         }
                     });
+                    
+                } else if (setting.type === 'text' && setting.paintable) {
+                    // Paintable maps save explicitly after each click or
+                    // drag stroke (see handleMapClick and setupDragging).
+                    // Saving here would also fire on load and would miss
+                    // recolors of regions that are already selected.
                 } else if (setting.type === 'text') {
                     // If input field is used to hold list, then update list
                     $('input[type=text][name="' + field_name + '"]', tr).each(function () {
@@ -403,6 +529,531 @@
                     });
                 }
             }
+        },
+
+        // ImageMapster onClick handler. Return false to cancel the default toggle.
+        handleMapClick: function (image, setting, data) {
+            // The pointer was dragged; the drag already handled selection
+            if ($(image).data('suppressClick')) {
+                $(image).data('suppressClick', false);
+                return false;
+            }
+
+            if (!setting.paintable) {
+                return true;
+            }
+
+            if (!setting.selectable) {
+                return false;
+            }
+
+            // A scale value must be chosen before painting or erasing
+            if (!module.requireIntensity(image)) {
+                return false;
+            }
+
+            const snapshot = module.beginPaintOp(image);
+            const key = data.key;
+            const intensity = $(image).data('paintIntensity');
+            const paintValues = $(image).data('paintValues');
+            const isSelected = $(image).mapster('get', key);
+
+            if (isSelected && paintValues[key] === intensity) {
+                // Clicking a region with its own value erases it
+                $(image).mapster('set', false, key);
+                delete paintValues[key];
+            } else {
+                // Paint or recolor the region; never toggle it off
+                module.paintArea(image, key, intensity);
+            }
+
+            module.updatePaintAreaList(image, setting);
+            module.commitPaintOp(image, snapshot);
+
+            return false;
+        },
+
+        // Undo history for paintable maps.
+        // Each entry is a copy of paintValues taken before one click or one
+        // drag stroke. The history starts from the values loaded with the
+        // page and lives only until the page is reloaded or submitted.
+        // Choosing a scale value is not an undoable step.
+        beginPaintOp: function (image) {
+            return Object.assign({}, $(image).data('paintValues'));
+        },
+
+        // Record the snapshot if the operation changed anything
+        commitPaintOp: function (image, snapshot) {
+            const current = $(image).data('paintValues');
+            const before = Object.keys(snapshot);
+            const changed = before.length !== Object.keys(current).length ||
+                before.some(function (key) {
+                    return current[key] !== snapshot[key];
+                });
+
+            if (!changed) {
+                return;
+            }
+
+            const history = $(image).data('paintUndo');
+
+            history.push(snapshot);
+
+            // Keep memory bounded on very long sessions
+            if (history.length > 100) {
+                history.shift();
+            }
+
+            module.updateUndoButton(image);
+        },
+
+        // Restore the state from before the most recent operation
+        undoPaint: function (image, setting) {
+            const history = $(image).data('paintUndo');
+            const snapshot = history.pop();
+
+            if (!snapshot) {
+                return;
+            }
+
+            const current = $(image).data('paintValues');
+
+            // Regions added since the snapshot
+            const remove = Object.keys(current).filter(function (key) {
+                return !(key in snapshot);
+            });
+
+            // Regions that were removed or recolored since the snapshot
+            const restore = {};
+
+            Object.keys(snapshot).forEach(function (key) {
+                if (current[key] !== snapshot[key]) {
+                    restore[key] = snapshot[key];
+                }
+            });
+
+            // One batched update instead of one redraw per region
+            module.paintAreas(image, restore, remove);
+
+            module.updatePaintAreaList(image, setting);
+            module.updateUndoButton(image);
+        },
+
+        updateUndoButton: function (image) {
+            const button = $(image).data('paintUndoButton');
+
+            if (button) {
+                button.prop('disabled', $(image).data('paintUndo').length === 0);
+            }
+        },
+
+        // Select one region and give it the color for an intensity value
+        paintArea: function (image, key, intensity) {
+            const values = {};
+
+            values[key] = intensity;
+            module.paintAreas(image, values);
+        },
+
+        // Paint several regions ({key: intensity}) and deselect the regions in
+        // `remove`, with as few ImageMapster redraws as possible.
+        //
+        // In ImageMapster, each mapster('set', false, key) call rebuilds the
+        // canvas and redraws every selected region. One call with a
+        // comma-separated key list deselects them all and redraws once.
+        // Selecting a region that isn't selected only draws that region.
+        paintAreas: function (image, values, remove) {
+            const paintValues = $(image).data('paintValues');
+            const keys = Object.keys(values);
+            const deselect = (remove || []).slice();
+
+            keys.forEach(function (key) {
+                paintValues[key] = values[key];
+
+                // Re-select an already selected region so the new color is drawn
+                if ($(image).mapster('get', key)) {
+                    deselect.push(key);
+                }
+            });
+
+            (remove || []).forEach(function (key) {
+                delete paintValues[key];
+            });
+
+            if (keys.length) {
+                $(image).mapster('set_options', {
+                    areas: keys.map(function (key) {
+                        return {
+                            key: key,
+                            fillColor: module.getPaintColor(values[key]),
+                            fillOpacity: 0.4
+                        };
+                    })
+                });
+            }
+
+            if (deselect.length) {
+                $(image).mapster('set', false, deselect.join(','));
+            }
+
+            if (keys.length) {
+                $(image).mapster('set', true, keys.join(','));
+            }
+        },
+
+        // Build a fast lookup from a pointer position to a map region key.
+        // Rect coords are parsed once, in natural image pixels, and the pointer
+        // is scaled to match. This avoids re-reading every <area> on each
+        // pointermove and does not depend on Mapster rescaling the coords.
+        // Only shape="rect" areas are hit-tested.
+        buildHitTester: function (image) {
+            const mapName = $(image).attr('usemap').replace('#', '');
+            const rects = [];
+            const keys = new Set();
+
+            $('map[name="' + mapName + '"] area').each(function () {
+                const key = $(this).attr('data-key');
+
+                if (!key) {
+                    return;
+                }
+
+                keys.add(key);
+
+                const shape = ($(this).attr('shape') || 'rect').toLowerCase();
+
+                if (shape !== 'rect') {
+                    return;
+                }
+
+                const c = ($(this).attr('coords') || '').split(',').map(Number);
+
+                if (c.length === 4 && c.every(Number.isFinite)) {
+                    rects.push({ key: key, x1: c[0], y1: c[1], x2: c[2], y2: c[3] });
+                }
+            });
+
+            return {
+                has: function (key) {
+                    return keys.has(key);
+                },
+                keyAt: function (event) {
+                    const rect = image.getBoundingClientRect();
+
+                    if (!rect.width) {
+                        return null;
+                    }
+
+                    const scale = image.naturalWidth
+                        ? image.naturalWidth / rect.width
+                        : 1;
+                    const x = (event.clientX - rect.left) * scale;
+                    const y = (event.clientY - rect.top) * scale;
+
+                    for (let i = 0; i < rects.length; i++) {
+                        const r = rects[i];
+
+                        if (x >= r.x1 && x < r.x2 && y >= r.y1 && y < r.y2) {
+                            return r.key;
+                        }
+                    }
+
+                    return null;
+                }
+            };
+        },
+
+        // Allow selecting map regions by clicking and dragging
+        setupDragging: function (img, setting) {
+            const image = $(img).get(0);
+            const hitTester = module.buildHitTester(image);
+
+            let armed = false;      // pointer is down on the map
+            let active = false;     // pointer has left the starting region
+            let startKey = null;
+            let lastKey = null;
+            let painted = false;
+            let strokeSnapshot = null;  // paint state before this stroke, for undo
+
+            // Paint the 2x2 brush whose top-left cell is anchorKey
+            function paintBrush(anchorKey) {
+                const intensity = $(image).data('paintIntensity');
+
+                const values = {};
+
+                module.getPaintKeys(anchorKey, hitTester).forEach(function (paintKey) {
+                    values[paintKey] = intensity;
+                });
+
+                module.paintAreas(image, values);
+
+                painted = true;
+            }
+
+            // Select (or paint) one region through ImageMapster
+            function selectArea(key) {
+                if (!key || key === lastKey) {
+                    return;
+                }
+
+                lastKey = key;
+
+                if (setting.paintable) {
+                    paintBrush(key);
+                    return;
+                }
+
+                $(image).mapster('set', true, key);
+            }
+
+            function endStroke() {
+                armed = false;
+                active = false;
+                startKey = null;
+                lastKey = null;
+
+                // Save the whole paint stroke once; it is one undo step
+                if (painted) {
+                    painted = false;
+                    module.updatePaintAreaList(image, setting);
+                    module.commitPaintOp(image, strokeSnapshot);
+                }
+
+                strokeSnapshot = null;
+            }
+
+            // Listen on the container because Mapster sits over the image
+            const dragTarget = $(image).closest('.imagemap');
+
+            // Without this, touch browsers turn a drag into a scroll and
+            // send pointercancel. The page cannot be scrolled by swiping on
+            // the map itself.
+            dragTarget.css('touch-action', 'none');
+
+            // Arm the drag but leave plain clicks to ImageMapster
+            dragTarget.on(
+                'pointerdown.imagemapDrag',
+                function (event) {
+                    $(image).data('suppressClick', false);
+
+                    startKey = hitTester.keyAt(event.originalEvent);
+                    armed = startKey !== null;
+                    active = false;
+                    lastKey = null;
+
+                    // A paint drag needs a chosen scale value. The click that
+                    // follows is handled (and refused) by handleMapClick.
+                    if (armed && setting.paintable && !module.requireIntensity(image)) {
+                        armed = false;
+                    }
+
+                    strokeSnapshot = armed && setting.paintable
+                        ? module.beginPaintOp(image)
+                        : null;
+                }
+            );
+
+            // Start selecting only once the pointer reaches a different
+            // region, so a slightly shaky click is still just a click
+            dragTarget.on(
+                'pointermove.imagemapDrag',
+                function (event) {
+                    if (!armed) {
+                        return;
+                    }
+
+                    // The button was released somewhere we did not see
+                    if (event.originalEvent.buttons === 0) {
+                        endStroke();
+                        return;
+                    }
+
+                    const key = hitTester.keyAt(event.originalEvent);
+
+                    if (!active) {
+                        if (!key || key === startKey) {
+                            return;
+                        }
+
+                        active = true;
+
+                        // This gesture is a drag; ignore the click that follows
+                        $(image).data('suppressClick', true);
+
+                        // Moving into a neighboring cell paints one 2x2 brush
+                        // covering both cells, so the smallest drag is 2x2
+                        const anchor = setting.paintable
+                            ? module.getBrushAnchor(startKey, key)
+                            : null;
+
+                        if (anchor) {
+                            paintBrush(anchor);
+                            lastKey = key;
+                            return;
+                        }
+
+                        selectArea(startKey);
+                    }
+
+                    selectArea(key);
+                }
+            );
+
+            // Stop drag selection. These handlers are removed in cleanup().
+            $(document).on(
+                'pointerup.imagemapDrag pointercancel.imagemapDrag',
+                function () {
+                    if (armed) {
+                        endStroke();
+                    }
+                }
+            );
+        },
+
+        // Return the color used for each pain intensity
+        getPaintColor: function (intensity) {
+            const colors = {
+                1: '4575B4',
+                2: '56B4D3',
+                3: '66C2A5',
+                4: 'A6D96A',
+                5: 'E6E65C',
+                6: 'FEC44F',
+                7: 'FB8C24',
+                8: 'FF6347',
+                9: 'D90020',
+                10: '800026'
+            };
+
+            return colors[intensity];
+        },
+
+        // For two adjacent grid cells (including diagonal neighbors), return
+        // the top-left cell of the 2x2 block that covers both; otherwise null
+        getBrushAnchor: function (keyA, keyB) {
+            const a = /^c(\d+)r(\d+)$/.exec(keyA || '');
+            const b = /^c(\d+)r(\d+)$/.exec(keyB || '');
+
+            if (!a || !b) {
+                return null;
+            }
+
+            const ca = Number(a[1]), ra = Number(a[2]);
+            const cb = Number(b[1]), rb = Number(b[2]);
+
+            if (Math.abs(ca - cb) > 1 || Math.abs(ra - rb) > 1) {
+                return null;
+            }
+
+            return 'c' + Math.min(ca, cb) + 'r' + Math.min(ra, rb);
+        },
+
+        // Return the cells of a 2x2 paint brush that exist on this map
+        getPaintKeys: function (key, hitTester) {
+            const match = key.match(/^c(\d+)r(\d+)$/);
+
+            if (!match) {
+                return [key];
+            }
+
+            const column = Number(match[1]);
+            const row = Number(match[2]);
+
+            const keys = [
+                `c${column}r${row}`,
+                `c${column + 1}r${row}`,
+                `c${column}r${row + 1}`,
+                `c${column + 1}r${row + 1}`
+            ];
+
+            return keys.filter(function (key) {
+                return hitTester.has(key);
+            });
+        },
+
+        // Allow map regions to be painted with pain intensity values
+        setupPainting: function (img, setting) {
+            const image = $(img).get(0);
+
+            // Store paint state on this image. No value is chosen at load.
+            $(image).data('paintIntensity', null);
+            $(image).data('paintValues', {});
+            $(image).data('paintUndo', []);
+
+            // Add the 1-10 color scale above the map
+            const controls = $('<div/>')
+                .css({
+                    'margin-bottom': '10px',
+                    'text-align': 'center'
+                });
+
+            // Outline the button for the active value
+            function markActive(button) {
+                controls.children('button.imagemap-scale')
+                    .attr('aria-pressed', 'false')
+                    .css('outline', 'none');
+
+                $(button)
+                    .attr('aria-pressed', 'true')
+                    .css({
+                        'outline': '3px solid #000',
+                        'outline-offset': '1px'
+                    });
+            }
+
+            // Shown when the user tries to paint before choosing a value
+            const prompt = $('<div/>', {
+                role: 'alert',
+                text: 'Choose a value on the scale before painting.'
+            })
+                .css({
+                    'color': '#c00',
+                    'font-weight': 'bold',
+                    'text-align': 'center',
+                    'margin-bottom': '10px'
+                })
+                .hide();
+
+            $(image).data('paintPrompt', prompt);
+
+            for (let intensity = 1; intensity <= 10; intensity++) {
+                $('<button/>', {
+                    type: 'button',
+                    text: intensity,
+                    'class': 'imagemap-scale',
+                    'aria-pressed': 'false'
+                })
+                    .css({
+                        'margin-right': '4px',
+                        'background-color': '#' + module.getPaintColor(intensity)
+                    })
+                    .on('click', function () {
+                        $(image).data('paintIntensity', intensity);
+                        markActive(this);
+                        prompt.hide();
+                    })
+                    .appendTo(controls);
+            }
+
+            // Undo the most recent click or drag stroke, repeatedly
+            const undoButton = $('<button/>', {
+                type: 'button',
+                text: 'Undo'
+            })
+                .css('margin-left', '12px')
+                .prop('disabled', true)
+                .on('click', function () {
+                    module.undoPaint(image, setting);
+                })
+                .appendTo(controls);
+
+            $(image).data('paintUndoButton', undoButton);
+
+            const paintTarget = $(image).closest('.imagemap');
+
+            paintTarget.prepend(controls, prompt);
+
+            // Single clicks are handled by handleMapClick via Mapster's onClick
         },
 
         // Resize window to fit mobile or orientation changes

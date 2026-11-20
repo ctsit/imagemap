@@ -1608,6 +1608,15 @@ This is a map showing the posterior view of a human body, where the area inside 
 
 ![GRIDS_BODY_MAP_BACK](./img/postpainimage1000px.png)
 
+**`PAIN_INTENSITY_BODY_FEMALE_FRONT`**, **`PAIN_INTENSITY_BODY_FEMALE_BACK`**, **`PAIN_INTENSITY_BODY_MALE_FRONT`**, **`PAIN_INTENSITY_BODY_MALE_BACK`**
+
+These four maps show the front and back of a female and a male body. The area inside each outline is split into selectable 10 pixel by 10 pixel grid cells. They are [paintable and draggable](#paintable-and-draggable-maps). A 1-10 color scale appears above the map. The user picks a value on the scale, then clicks a cell or clicks and drags to paint it with that value's color. Each painted cell records its value, so different parts of the body can have different intensities. Use these maps with a **Text Box** field.
+
+![PAIN_INTENSITY_BODY_FEMALE_FRONT](./img/pain_intensity_body_female_front.png)
+![PAIN_INTENSITY_BODY_FEMALE_BACK](./img/pain_intensity_body_female_back.png)
+![PAIN_INTENSITY_BODY_MALE_FRONT](./img/pain_intensity_body_male_front.png)
+![PAIN_INTENSITY_BODY_MALE_BACK](./img/pain_intensity_body_male_back.png)
+
 ## Usage
 To display one of the images above in a survey or data entry form, add a new field of type **Text Box** and include one of the following options in the **Action Tags / Field Annotation (optional)** field:
 
@@ -1636,14 +1645,54 @@ To display one of the images above in a survey or data entry form, add a new fie
 @IMAGEMAP=LADDER
 @IMAGEMAP=GRIDS_BODY_MAP_FRONT
 @IMAGEMAP=GRIDS_BODY_MAP_BACK
+@IMAGEMAP=PAIN_INTENSITY_BODY_FEMALE_FRONT
+@IMAGEMAP=PAIN_INTENSITY_BODY_FEMALE_BACK
+@IMAGEMAP=PAIN_INTENSITY_BODY_MALE_FRONT
+@IMAGEMAP=PAIN_INTENSITY_BODY_MALE_BACK
 ```
 
-Each region of an image is associated with a key, for example, the "Ankle (front-left)" of the female body diagram is linked to the key "f34". To find a particular key for a body part, please refer to the HTML files (map files) located in the folder `maps`. After selecting multiple body parts, the field containing the action tag `@IMAGEMAP` will have as a value a string of comma-separated keys, e.g. "f36,f17,f18,f21". Similarly, if using the faces diagram, the field containing the action tag (e.g. `@IMAGEMAP=SMILE_SCALE`) will have the value corresponding to the face clicked.
+Each region of an image is associated with a key, for example, the "Ankle (front-left)" of the female body diagram is linked to the key "f34". To find a particular key for a body part, please refer to the HTML files (map files) located in the folder `maps`. After selecting multiple body parts, the field containing the action tag `@IMAGEMAP` will have as a value a string of comma-separated keys, e.g. "f36,f17,f18,f21". Similarly, if using the faces diagram, the field containing the action tag (e.g. `@IMAGEMAP=SMILE_SCALE`) will have the value corresponding to the face clicked. Paintable maps store a value with each key, as described below.
+
+### Paintable and draggable maps
+
+Two optional settings in a map's entry under `default-image-maps` in `config.json` add drawing features. They are set per map, not per field: every field that uses a map gets that map's behavior. A map that needs different behavior needs its own entry in `config.json`.
+
+- **`"draggable": true`**: the user can hold the mouse button (or a finger on a touch screen) and drag across the image to select many regions at once. A single click still selects one region. Dragging is turned off when the form is read-only. On touch screens, swiping on the map draws instead of scrolling the page.
+- **`"paintable": true`**: a 1-10 color scale appears above the map, along with an **Undo** button. No value is chosen when the page loads. If the user clicks or drags on the map before choosing a value, a message asks them to choose one first. With a value chosen:
+  - Clicking a region paints it with that value's color.
+  - Clicking a painted region with a different value recolors it.
+  - Clicking a painted region with its own value erases it.
+  - On a map that is also draggable, dragging paints with a 2 x 2 cell brush.
+  - **Undo** reverses the most recent click or drag stroke and can be pressed repeatedly. The undo history starts from the values that were saved when the page loaded, and it is cleared when the page is reloaded or submitted.
+
+  Paintable maps must be used with a **Text Box** field. The scale and Undo button are hidden on read-only forms, but saved colors are still shown.
+
+The `PAIN_INTENSITY_BODY_*` maps use both settings:
+
+```json
+"PAIN_INTENSITY_BODY_FEMALE_FRONT": {
+    "name": "pain_intensity_body_female_front",
+    "image": "img/pain_intensity_body_female_front.png",
+    "map": "maps/pain_intensity_body_female_front.html",
+    "hideInput": true,
+    "draggable": true,
+    "paintable": true,
+    ...
+}
+```
+
+A paintable map saves each painted region as `key:value`, separated by commas and sorted by key. On the `PAIN_INTENSITY_BODY_*` maps, the key names the grid cell by column and row, so `c28r30` is column 28, row 30. Each value is a whole number from 1 to 10. For example:
+
+```
+c28r30:5,c29r30:8,c30r30:8
+```
 
 
 ## Testing instrument
 
 This project includes an [Example Instrument](https://github.com/ctsit/imagemap/raw/refs/heads/master/docs/all_maps_Instrument_Example.zip) that includes each of these image maps. It demonstrates different methods of using these image maps; which is suitable for testing or demonstration purposes. Some image maps are also available in their own `*_Instrument_Example.zip` in the [docs](https://github.com/ctsit/imagemap/tree/master/docs/) folder.
+
+The [Pain Intensity Body Maps instrument](https://github.com/ctsit/imagemap/raw/refs/heads/master/docs/pain_intensity_body_maps_Instrument_Example.zip) can be used as-is in a production project. It has a field of instructions and one Text Box field for each of the four `PAIN_INTENSITY_BODY_*` maps.
 
 
 ## Acknowledgements & Copyright
@@ -1666,4 +1715,5 @@ This project includes an [Example Instrument](https://github.com/ctsit/imagemap/
  * The FR_REGION was contributed by Hugo Potier of University Hospital of Nîmes. The image source come from [data.gouv.fr](http://data.gouv.fr).
  * Fibromyalgia self-report image appears in the article ["Fibromyalgia: A Clinical Review"](https://jamanetwork.com/journals/jama/fullarticle/1860480) by Daniel J. Clauw and is provided by Thomas Van Doorn and Dr. Andrea Nicol. Copyright 2014 American Medical Association. All rights reserved.
  * The Grids Body Map (both front and back) were developed and contributed by Sumon Chattopadhyay and the BMIC team at the University of Utah.
+ * The Pain Intensity Body Maps (front and back, male and female) were contributed by Madeline Holt, Akash Shanmugam, and Dr. Andrew Bishara of the University of California, San Francisco.
 
