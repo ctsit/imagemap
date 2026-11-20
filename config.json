@@ -18,6 +18,12 @@
     "compatibility": {
         "redcap-version-min": "13.7.0"
     },
+    "action-tags": [
+        {
+            "tag": "@IMAGEMAP",
+            "description": "Converts a radio, checkbox, or text field into a clickable image. For example, to display a male body with clickable body parts, use <code>@IMAGEMAP=CHOIRBODYMAP_MALE</code>. For the full list of image maps and their options, see the <a href='https://github.com/ctsit/imagemap#features-included' target='_blank'>Image Map documentation</a>."
+        }
+    ],
     "project-settings": [
         {
             "key": "enable-console-logs",
