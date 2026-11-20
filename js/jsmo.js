@@ -913,16 +913,16 @@
         // Return the color used for each pain intensity
         getPaintColor: function (intensity) {
             const colors = {
-                1: 'ffe066',
-                2: 'ffd43b',
-                3: 'fcc419',
-                4: 'fab005',
-                5: 'f59f00',
-                6: 'f76707',
-                7: 'e8590c',
-                8: 'e03131',
-                9: 'c92a2a',
-                10: 'a51111'
+                1: '4575B4',
+                2: '56B4D3',
+                3: '66C2A5',
+                4: 'A6D96A',
+                5: 'E6E65C',
+                6: 'FEC44F',
+                7: 'FB8C24',
+                8: 'FF6347',
+                9: 'D90020',
+                10: '800026'
             };
 
             return colors[intensity];
