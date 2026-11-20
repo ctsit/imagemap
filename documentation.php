@@ -64,10 +64,10 @@ require_once APP_PATH_DOCROOT . 'ProjectGeneral/header.php';
 
 <h4>Can you help me get started?</h4>
 <p>
-    The following instrument zip file contains a set of examples with different imagemap options. Simply download it and add it to your project from the online designer. You can remove the instrument at any time when you're done.
+    Example instruments are available in the <code>docs</code> folder of the Image Map GitHub repository. <code>all_maps_Instrument_Example.zip</code> shows every image map with different options, and other <code>*_Instrument_Example.zip</code> files cover individual maps, such as the Pain Intensity Body maps. Download one and upload it as a new instrument in the Online Designer. You can remove it at any time.
 </p>
-    <a href="<?php echo $module->getUrl("docs/all_maps_Instrument_Example.zip") ?>" target="_BLANK">
-        <div class="button btn btn-primary">Download Example Instrument</div>
+    <a href="https://github.com/ctsit/imagemap/tree/master/docs/" target="_blank" rel="noopener">
+        <div class="button btn btn-primary">Browse Example Instruments</div>
     </a>
 
 <h4>What Maps Are There?</h4>
